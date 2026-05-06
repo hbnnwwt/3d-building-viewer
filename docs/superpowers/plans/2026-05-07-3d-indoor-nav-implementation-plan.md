@@ -1065,22 +1065,47 @@ cd indoor-nav-3d && git add apps/editor && git commit -m "feat(editor): add edit
 
 ## Phase 2: 核心功能实现（后续迭代）
 
+> Phase 2 的具体任务将在 Phase 1 完成后详细定义。以下为初步规划：
+
 ### Task 6: A* 寻路算法实现
 
 **Files:**
 - Create: `indoor-nav-3d/packages/shared/src/pathfinding.ts`
 
+**概述：** 在 `packages/shared` 中实现 A* 寻路算法，供 viewer 和 editor 共用。
+
+**待实现内容：**
+- `findPath(graph: NavigationGraph, from: string, to: string): NavigationStep[]`
+- 支持同楼层寻路
+- 支持跨楼层寻路（通过 elevator/stair 节点中转）
+- 返回路径点和总距离
+
 ### Task 7: 3D导航路径可视化
+
+**待实现内容：**
+- 在 Three.js 场景中渲染导航路径线
+- 高亮起点、终点
+- 显示路径指示
 
 ### Task 8: 编辑器楼层管理UI
 
+**待实现内容：**
+- 楼层增删改查
+- 楼层拖拽排序
+- 楼层高度/尺寸编辑
+
 ### Task 9: 编辑器导航点编辑
+
+**待实现内容：**
+- 可视化添加/删除/移动导航节点
+- 节点类型切换（walkable/elevator/stair）
+- 连接线编辑
 
 ---
 
 ## 执行选项
 
-**Plan complete and saved to `docs/superpowers/plans/2026-05-07-3d-indoor-nav-design.md`**
+**Plan complete and saved to `docs/superpowers/plans/2026-05-07-3d-indoor-nav-implementation-plan.md`**
 
 **Two execution options:**
 
