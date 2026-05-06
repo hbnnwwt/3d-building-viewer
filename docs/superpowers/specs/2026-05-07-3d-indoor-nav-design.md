@@ -106,37 +106,27 @@ A full-stack 3D indoor navigation and building monitoring system. Supports cross
 | PUT | /api/navigation/:buildingId | Update navigation graph |
 | GET | /api/monitors/:buildingId | Get monitor data |
 
-## Project Structure
+```
+3d-building-viewer/
+├── main/               # Legacy non-OOP version
+├── oop/                # Legacy OOP version
+├── indoor-nav-3d/      # ⭐ NEW: 3D Indoor Navigation System
+├── docs/
+└── index.html
+```
+
+## Project Structure (indoor-nav-3d)
 
 ```
 indoor-nav-3d/
 ├── apps/
-│   ├── viewer/
-│   │   ├── src/
-│   │   │   ├── components/
-│   │   │   │   ├── Canvas/
-│   │   │   │   ├── Building/
-│   │   │   │   ├── Navigation/
-│   │   │   │   └── Monitor/
-│   │   │   ├── hooks/
-│   │   │   ├── types/
-│   │   │   └── App.tsx
-│   │   └── package.json
-│   └── editor/
-│       └── (similar structure)
+│   ├── viewer/         # Frontend - 3D Viewer
+│   └── editor/         # Frontend - Editor
 ├── packages/
-│   └── shared/
-│       └── types/
-├── server/
-│   ├── src/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   └── index.ts
-│   ├── prisma/
-│   │   └── schema.prisma
-│   └── package.json
-├── package.json
-└── turbo.json
+│   └── shared/         # Shared TypeScript types
+├── server/             # Backend (Express + Prisma + SQLite)
+├── package.json        # Workspace root
+└── turbo.json          # Turborepo config
 ```
 
 ## Navigation Algorithm
