@@ -1,0 +1,41 @@
+:root {
+  /* Primary colors */
+  --color-primary: #007bff;
+  --color-primary-dark: #0056b3;
+  --color-success: #1e7e34;
+  --color-success-dark: #1e7e34;
+  --color-secondary: #6c757d;
+
+  /* Text colors */
+  --color-text: #333333;
+  --color-text-muted: #666666;
+
+  /* Surface colors */
+  --color-bg-3d: #1a1a1a;
+  --color-surface: #ffffff;
+  --color-border: #e0e0e0;
+
+  /* Navigation node colors */
+  --color-node-walkable: #4a9eff;
+  --color-node-entrance: #4aff4a;
+  --color-node-exit: #ff4a4a;
+  --color-node-elevator: #ffaa4a;
+  --color-node-stair: #aa4aff;
+
+  /* Spacing */
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-full: 20px;
+
+  /* Shadows */
+  --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  /* Touch target minimum */
+  --touch-target-min: 44px;
+}

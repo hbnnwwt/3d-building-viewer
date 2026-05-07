@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import { NavigationStep, Position3D } from '@indoor-nav/shared';
+import { Line } from '@react-three/drei';
 
 interface Props {
   path: NavigationStep[];
@@ -9,28 +10,28 @@ interface Props {
 
 export default function NavigationPath({ path, visible }: Props) {
   // Create line geometry from path points
-  const lineGeometry = useMemo(() => {
-    if (!visible || path.length === 0) return null;
+  const points = useMemo(() => {
+    if (!visible || path.length === 0) return [];
 
-    const points: THREE.Vector3[] = [];
+    const result: [number, number, number][] = [];
     for (const step of path) {
       for (const point of step.points) {
-        points.push(new THREE.Vector3(point.x, point.y, point.z));
+        result.push([point.x, point.y, point.z]);
       }
     }
-
-    if (points.length < 2) return null;
-    return new THREE.BufferGeometry().setFromPoints(points);
+    return result;
   }, [path, visible]);
 
-  if (!visible || !lineGeometry) return null;
+  if (!visible || points.length < 2) return null;
 
   return (
     <group>
-      {/* Path line */}
-      <line geometry={lineGeometry}>
-        <lineBasicMaterial color="#007bff" linewidth={3} />
-      </line>
+      {/* Path line using drei Line component */}
+      <Line
+        points={points}
+        color="#007bff"
+        lineWidth={3}
+      />
 
       {/* Start marker - green sphere */}
       {path[0]?.points[0] && (

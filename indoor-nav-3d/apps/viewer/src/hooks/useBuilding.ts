@@ -1,45 +1,50 @@
 import { useState, useEffect } from 'react';
 import { Building } from '@indoor-nav/shared';
 
-interface BuildingsData {
-  buildings: Building[];
-}
-
-export function useBuilding(buildingId: string | null) {
-  const [building, setBuilding] = useState<Building | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!buildingId) return;
-    setLoading(true);
-    fetch('/data/buildings.json')
-      .then(r => r.json())
-      .then((data: BuildingsData) => {
-        const found = data.buildings.find(b => b.id === buildingId);
-        if (!found) throw new Error('Building not found');
-        setBuilding(found);
-        setLoading(false);
-      })
-      .catch(e => { setError(e.message); setLoading(false); });
-  }, [buildingId]);
-
-  return { building, loading, error };
-}
+const EDITOR_STORAGE_KEY = 'indoor-nav-editor-data';
 
 export function useBuildings() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
+  const [source, setSource] = useState<'file' | 'editor'>('file');
 
   useEffect(() => {
-    fetch('/data/buildings.json')
-      .then(r => r.json())
-      .then((data: BuildingsData) => {
-        setBuildings(data.buildings);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    // Try to load from Editor's localStorage first
+    const editorData = localStorage.getItem(EDITOR_STORAGE_KEY);
+    if (editorData) {
+      try {
+        const data = JSON.parse(editorData);
+        if (data.buildings && data.buildings.length > 0) {
+          setBuildings(data.buildings);
+          setSource('editor');
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('Failed to parse editor data', e);
+      }
+    }
+
+    // Fall back to scanning data folder for all JSON files in parallel
+    const loadAllData = async () => {
+      // Mark as loading when entering the JSON fetch phase
+      setLoading(true);
+
+      const jsonFiles = ['buildings.json', 'buildings2.json', 'buildings3.json', 'buildings4.json', 'buildings5.json'];
+      const results = await Promise.all(
+        jsonFiles.map(file =>
+          fetch(`/data/${file}`).then(r => r.ok ? r.json() : null).catch(() => null)
+        )
+      );
+      const allBuildings = results.filter(r => r?.buildings).flatMap(r => r.buildings);
+
+      setBuildings(allBuildings);
+      setSource('file');
+      setLoading(false);
+    };
+
+    loadAllData();
   }, []);
 
-  return { buildings, loading };
+  return { buildings, loading, source };
 }

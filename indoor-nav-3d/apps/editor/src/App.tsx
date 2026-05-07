@@ -7,7 +7,7 @@ import NavPointList from './components/NavPointList';
 
 type EditorTab = 'floor' | 'navpoint';
 
-const STORAGE_KEY = 'indoor-nav-data';
+const STORAGE_KEY = 'indoor-nav-editor-data';
 
 export default function App() {
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -15,6 +15,7 @@ export default function App() {
   const [selectedFloor, setSelectedFloor] = useState<Floor | null>(null);
   const [editorTab, setEditorTab] = useState<EditorTab>('floor');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -34,13 +35,19 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ buildings }));
   }, [buildings]);
 
-  const handleExport = () => {
+  const handleExport = (type: 'data' | 'download') => {
+    setExportMenuOpen(false);
     const data = { buildings };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'buildings.json';
+    if (type === 'download') {
+      a.download = 'buildings.json';
+    } else {
+      a.download = 'buildings.json';
+      alert('请将 buildings.json 放置到 viewer 的 public/data/ 目录中');
+    }
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -153,9 +160,34 @@ export default function App() {
         <button onClick={() => fileInputRef.current?.click()}>
           导入 JSON
         </button>
-        <button onClick={handleExport}>
-          导出 JSON
+        <button onClick={() => setExportMenuOpen(!exportMenuOpen)} style={{ position: 'relative' }}>
+          导出 JSON ▾
         </button>
+        {exportMenuOpen && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            right: 0,
+            background: 'white',
+            border: '1px solid #ccc',
+            borderRadius: 4,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 1000
+          }}>
+            <button
+              onClick={() => handleExport('data')}
+              style={{ display: 'block', width: '100%', padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer' }}
+            >
+              导出到 data 文件夹
+            </button>
+            <button
+              onClick={() => handleExport('download')}
+              style={{ display: 'block', width: '100%', padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer' }}
+            >
+              下载到本地
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

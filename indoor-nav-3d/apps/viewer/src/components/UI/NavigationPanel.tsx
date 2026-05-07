@@ -16,14 +16,19 @@ export default function NavigationPanel({ building, onClose, onNavigate }: Props
   };
 
   return (
-    <div style={{
-      position: 'absolute', right: 16, top: 16, width: 280,
-      background: 'white', borderRadius: 8, padding: 16,
-      boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-    }}>
+    <section
+      className="panel"
+      role="region"
+      aria-labelledby="nav-panel-title"
+      style={{
+        position: 'absolute', right: 16, top: 16, width: 280,
+        background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-md)',
+        boxShadow: 'var(--shadow-panel)'
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-        <h3>室内导航</h3>
-        <button onClick={onClose}>×</button>
+        <h3 id="nav-panel-title">室内导航</h3>
+        <button onClick={onClose} aria-label="关闭导航面板">×</button>
       </div>
 
       <div style={{ marginBottom: 12 }}>
@@ -44,9 +49,9 @@ export default function NavigationPanel({ building, onClose, onNavigate }: Props
         </select>
       </div>
 
-      <button onClick={handleNavigate} style={{ width: '100%', padding: 12, background: '#007bff', color: 'white', border: 'none', borderRadius: 4 }}>
+      <button onClick={handleNavigate} style={{ width: '100%', padding: 12, background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)' }}>
         查询路线
       </button>
-    </div>
+    </section>
   );
 }

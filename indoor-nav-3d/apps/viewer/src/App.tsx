@@ -6,7 +6,7 @@ import { useBuildings } from './hooks/useBuilding';
 import { Building, NavigationStep, NavigationGraph, findPath } from '@indoor-nav/shared';
 
 export default function App() {
-  const { buildings, loading } = useBuildings();
+  const { buildings, loading, source } = useBuildings();
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [showNavPanel, setShowNavPanel] = useState(false);
   const [showMonitorPanel, setShowMonitorPanel] = useState(false);
@@ -16,7 +16,6 @@ export default function App() {
   const handleNavigate = (fromFloorId: string, toFloorId: string) => {
     if (!selectedBuilding) return;
 
-    // Build navigation graph from building floors
     const allNodes = selectedBuilding.floors.flatMap(f => f.navigationMesh || []);
     const edges: { from: string; to: string; weight: number }[] = [];
 
@@ -32,7 +31,6 @@ export default function App() {
       edges: edges.map(e => ({ from: e.from, to: e.to, weight: e.weight }))
     };
 
-    // Find first walkable node on each floor
     const fromFloor = selectedBuilding.floors.find(f => f.id === fromFloorId);
     const toFloor = selectedBuilding.floors.find(f => f.id === toFloorId);
     if (!fromFloor || !toFloor) return;
@@ -52,12 +50,32 @@ export default function App() {
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      {/* Data source indicator */}
+      <div
+        className="data-source-indicator"
+        aria-live="polite"
+        style={{
+          position: 'absolute', top: 16, right: 16, zIndex: 100,
+          background: source === 'editor' ? 'var(--color-success)' : 'var(--color-secondary)',
+          color: 'white',
+          padding: '4px 12px',
+          borderRadius: 'var(--radius-full)',
+          fontSize: 12
+        }}
+      >
+        {source === 'editor' ? '来自编辑器' : '静态数据'}
+      </div>
+
       {/* Building selector */}
-      <div style={{
-        position: 'absolute', top: 16, left: 16, zIndex: 100,
-        background: 'white', borderRadius: 8, padding: 16,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-      }}>
+      <div
+        id="main-content"
+        className="building-selector"
+        style={{
+          position: 'absolute', top: 16, left: 16, zIndex: 100,
+          background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', padding: 12,
+          boxShadow: 'var(--shadow-panel)'
+        }}
+      >
         <h3 style={{ margin: '0 0 8px 0' }}>选择建筑</h3>
         <select
           value={selectedBuilding?.id || ''}
@@ -66,7 +84,8 @@ export default function App() {
             setSelectedBuilding(b || null);
             setShowPath(false);
           }}
-          style={{ padding: 8, minWidth: 150 }}
+          style={{ padding: 10, minWidth: 200 }}
+          aria-label="选择建筑"
         >
           <option value="">-- 请选择 --</option>
           {buildings.map(b => (
@@ -77,14 +96,24 @@ export default function App() {
 
       <BuildingCanvas building={selectedBuilding} navigationPath={navigationPath} showPath={showPath} />
 
-      <div style={{
+      <div className="nav-buttons" style={{
         position: 'absolute', top: 16, right: 16,
         display: 'flex', gap: 8
       }}>
-        <button onClick={() => setShowNavPanel(!showNavPanel)} disabled={!selectedBuilding}>
+        <button
+          onClick={() => setShowNavPanel(!showNavPanel)}
+          disabled={!selectedBuilding}
+          aria-label="打开导航面板"
+          style={{ padding: 'var(--spacing-sm) var(--spacing-md)', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)' }}
+        >
           导航
         </button>
-        <button onClick={() => setShowMonitorPanel(!showMonitorPanel)} disabled={!selectedBuilding}>
+        <button
+          onClick={() => setShowMonitorPanel(!showMonitorPanel)}
+          disabled={!selectedBuilding}
+          aria-label="打开监测面板"
+          style={{ padding: 'var(--spacing-sm) var(--spacing-md)', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)' }}
+        >
           监测
         </button>
       </div>
