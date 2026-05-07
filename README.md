@@ -47,7 +47,7 @@ dev.bat
 - `main/index.html` - non-OOP 版本
 - `oop/index.html` - OOP 重构版本
 
-**在线演示:** https://3d.babywwy.cn/
+**在线演示:** https://hbnnwwt.github.io/3d-building-viewer/
 
 ## 第三方库
 
