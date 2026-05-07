@@ -17,7 +17,7 @@ const nodeColors: Record<string, string> = {
   exit: '#dc3545'
 };
 
-function NavPointMesh({ node, selected, onClick }: { node: NavigationNode; selected: boolean; onClick: () => void }) {
+function NavPointMesh({ node, selected, source, onClick }: { node: NavigationNode; selected: boolean; source: boolean; onClick: () => void }) {
   return (
     <mesh
       position={[node.position.x, node.position.y, node.position.z]}
@@ -25,7 +25,7 @@ function NavPointMesh({ node, selected, onClick }: { node: NavigationNode; selec
     >
       <sphereGeometry args={[0.5, 16, 16]} />
       <meshStandardMaterial
-        color={selected ? '#ff00ff' : nodeColors[node.type] || '#007bff'}
+        color={source ? '#00ff00' : (selected ? '#ff00ff' : nodeColors[node.type] || '#007bff')}
       />
     </mesh>
   );
@@ -65,8 +65,34 @@ function NavPointConnections({ nodes }: { nodes: NavigationNode[] }) {
 export default function NavPointEditor({ floor, nodes, onUpdateNodes }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<NavigationNode['type']>('walkable');
+  const [connectMode, setConnectMode] = useState(false);
+  const [sourceNodeId, setSourceNodeId] = useState<string | null>(null);
+
+  const handleNodeClick = (nodeId: string) => {
+    if (connectMode) {
+      if (!sourceNodeId) {
+        setSourceNodeId(nodeId);
+      } else if (sourceNodeId !== nodeId) {
+        // Add connection from source to target (bidirectional)
+        onUpdateNodes(nodes.map(n => {
+          if (n.id === sourceNodeId && !n.connections.includes(nodeId)) {
+            return { ...n, connections: [...n.connections, nodeId] };
+          }
+          if (n.id === nodeId && !n.connections.includes(sourceNodeId)) {
+            return { ...n, connections: [...n.connections, sourceNodeId] };
+          }
+          return n;
+        }));
+        setSourceNodeId(null);
+        setConnectMode(false);
+      }
+    } else {
+      setSelectedId(nodeId);
+    }
+  };
 
   const handleCanvasClick = (e: any) => {
+    if (connectMode) return; // Don't add nodes in connect mode
     // Add new node at click position
     if (e.point) {
       const newNode: NavigationNode = {
@@ -119,7 +145,8 @@ export default function NavPointEditor({ floor, nodes, onUpdateNodes }: Props) {
               key={node.id}
               node={node}
               selected={selectedId === node.id}
-              onClick={() => setSelectedId(node.id)}
+              source={sourceNodeId === node.id}
+              onClick={() => handleNodeClick(node.id)}
             />
           ))}
 
@@ -153,6 +180,29 @@ export default function NavPointEditor({ floor, nodes, onUpdateNodes }: Props) {
           </p>
         </div>
 
+        <div style={{ marginTop: 16 }}>
+          <h4>Connect Nodes</h4>
+          <button
+            onClick={() => {
+              setConnectMode(!connectMode);
+              setSourceNodeId(null);
+              setSelectedId(null);
+            }}
+            style={{
+              width: '100%', padding: 8,
+              background: connectMode ? '#28a745' : '#007bff',
+              color: 'white'
+            }}
+          >
+            {connectMode ? 'Cancel Connect' : 'Connect Mode'}
+          </button>
+          {connectMode && (
+            <p style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+              {sourceNodeId ? 'Click target node to connect' : 'Click first node'}
+            </p>
+          )}
+        </div>
+
         {selectedId && (
           <div style={{ marginTop: 16 }}>
             <h4>Selected Node</h4>
@@ -177,6 +227,42 @@ export default function NavPointEditor({ floor, nodes, onUpdateNodes }: Props) {
                 <option value="exit">Exit</option>
               </select>
             </div>
+
+            {(() => {
+              const selectedNode = nodes.find(n => n.id === selectedId);
+              if (!selectedNode || selectedNode.connections.length === 0) return null;
+              return (
+                <div style={{ marginTop: 12 }}>
+                  <label style={{ display: 'block', marginBottom: 4 }}>Connections</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {selectedNode.connections.map(connId => {
+                      const connNode = nodes.find(n => n.id === connId);
+                      return (
+                        <div key={connId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 12 }}>{connNode?.type || '?'} #{connId.slice(-4)}</span>
+                          <button
+                            onClick={() => {
+                              onUpdateNodes(nodes.map(n => {
+                                if (n.id === selectedId) {
+                                  return { ...n, connections: n.connections.filter(c => c !== connId) };
+                                }
+                                if (n.id === connId) {
+                                  return { ...n, connections: n.connections.filter(c => c !== selectedId) };
+                                }
+                                return n;
+                              }));
+                            }}
+                            style={{ padding: '2px 6px', fontSize: 10, background: '#dc3545', color: 'white' }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
