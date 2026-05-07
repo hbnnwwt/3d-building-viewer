@@ -2,11 +2,44 @@
 <head>
 <meta http-equiv="Content-Language" content="utf-8">
 <meta HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf8">
-<title></title>
+<title>3D Building Viewer</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 40px; }
+h1 { margin-bottom: 30px; }
+.item { margin: 15px 0; font-size: 18px; }
+.item a { color: #007bff; text-decoration: none; }
+.item a:hover { text-decoration: underline; }
+.desc { color: #666; font-size: 14px; margin-left: 10px; }
+.note { margin-top: 40px; padding: 15px; background: #f0f0f0; border-radius: 5px; }
+</style>
 </head>
 <body>
-<div>1.<a href="./main/index.html">non-OOP</a></div>
-<div>2.<a href="./oop/index.html">OOP</a></div>
-<div>3.<a href="https://github.com/dizzyeyes/3d-building-viewer/">Code in GitHub</a></div>
+<h1>3D Building Viewer</h1>
+
+<div class="item">
+  <a href="./indoor-nav-3d/">indoor-nav-3d</a>
+  <span class="desc">✨ 推荐 - React + Three.js 新版 (需本地运行)</span>
+</div>
+
+<div class="item">
+  <a href="./main/index.html">main</a>
+  <span class="desc">旧版 non-OOP (Three.js 7.1)</span>
+</div>
+
+<div class="item">
+  <a href="./oop/index.html">oop</a>
+  <span class="desc">旧版 OOP 重构</span>
+</div>
+
+<div class="item">
+  <a href="https://github.com/hbnnwwt/3d-building-viewer/">GitHub</a>
+  <span class="desc">源码</span>
+</div>
+
+<div class="note">
+  <strong>indoor-nav-3d 快速开始:</strong><br>
+  <code>cd indoor-nav-3d &amp;&amp; setup.bat &amp;&amp; dev.bat</code><br>
+  然后访问 <a href="http://localhost:5173">http://localhost:5173</a> (Viewer) 或 <a href="http://localhost:5174">http://localhost:5174</a> (Editor)
+</div>
 </body>
 </html>
