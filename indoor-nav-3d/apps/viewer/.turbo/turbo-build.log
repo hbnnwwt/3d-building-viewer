@@ -1,0 +1,4 @@
+
+> @indoor-nav/viewer@0.1.0 build F:\code\3d building\3d-building-viewer\indoor-nav-3d\apps\viewer
+> tsc && vite build
+
