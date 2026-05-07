@@ -8,9 +8,9 @@ interface Props {
 
 export default function FloorEditor({ floor, onSave }: Props) {
   const [name, setName] = useState(floor.name);
-  const [width, setWidth] = useState(floor.geometry.width || 100);
-  const [depth, setDepth] = useState(floor.geometry.depth || 100);
-  const [floorHeight, setFloorHeight] = useState(floor.geometry.floorHeight || 3);
+  const [width, setWidth] = useState(floor.geometry?.width || 100);
+  const [depth, setDepth] = useState(floor.geometry?.depth || 100);
+  const [floorHeight, setFloorHeight] = useState(floor.geometry?.floorHeight || 3);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +18,6 @@ export default function FloorEditor({ floor, onSave }: Props) {
       ...floor,
       name,
       geometry: {
-        ...floor.geometry,
         width,
         depth,
         floorHeight
@@ -70,7 +69,7 @@ export default function FloorEditor({ floor, onSave }: Props) {
         </div>
       </div>
 
-      <button type="submit" style={{ padding: '8px 16px', background: '#007bff', color: 'white' }}>
+      <button type="submit" style={{ padding: '8px 16px', background: '#007bff', color: 'white', border: 'none', borderRadius: 4 }}>
         Save Changes
       </button>
     </form>

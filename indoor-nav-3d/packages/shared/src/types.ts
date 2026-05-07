@@ -3,8 +3,9 @@ export interface Building {
   name: string;
   info: string;
   floors: Floor[];
-  createdAt: string;
-  updatedAt: string;
+  monitors?: Monitor[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Floor {
@@ -13,10 +14,10 @@ export interface Floor {
   name: string;
   order: number;
   geometry: FloorGeometry;
-  navigationMesh: NavigationNode[];
-  brands: Brand[];
-  createdAt: string;
-  updatedAt: string;
+  navigationMesh?: NavigationNode[];
+  brands?: Brand[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface FloorGeometry {

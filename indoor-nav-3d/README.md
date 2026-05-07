@@ -8,21 +8,20 @@
 |---|---|
 | 前端 (Viewer) | React 18, Three.js, TypeScript, Vite |
 | 前端 (Editor) | React 18, Three.js, TypeScript, Vite |
-| 后端 | Node.js, Express, TypeScript |
-| 数据库 | SQLite (Prisma ORM) |
-| 架构 | Monorepo (pnpm workspace + turbo) |
+| 架构 | Monorepo (pnpm workspace) |
 
 ## 项目结构
 
 ```
 indoor-nav-3d/
 ├── apps/
-│   ├── viewer/         # 3D 查看器 - 浏览建筑、导航、监测
-│   └── editor/        # 3D 编辑器 - 管理建筑、楼层、导航点
+│   ├── viewer/         # 3D 查看器 - 加载静态JSON数据
+│   └── editor/        # 3D 编辑器 - 本地使用，支持导入/导出JSON
 ├── packages/
-│   └── shared/         # 共享类型定义
-├── server/             # Express API 服务
-├── dev.bat            # 启动全部服务
+│   └── shared/         # 共享类型定义和A*寻路算法
+├── public/
+│   └── data/           # 静态JSON数据文件
+├── dev.bat            # 启动服务
 └── setup.bat          # 初始化安装
 ```
 
@@ -33,7 +32,7 @@ indoor-nav-3d/
 ```cmd
 cd indoor-nav-3d
 setup.bat          # 首次安装依赖
-dev.bat           # 启动全部服务
+dev.bat           # 启动服务
 ```
 
 ### Linux/Mac
@@ -41,8 +40,8 @@ dev.bat           # 启动全部服务
 ```bash
 cd indoor-nav-3d
 chmod +x *.sh
-./setup.sh        # 首次安装依赖
-./dev.sh         # 启动全部服务
+./setup.sh
+./dev.sh
 ```
 
 ## 服务地址
@@ -51,7 +50,6 @@ chmod +x *.sh
 |------|------|
 | Viewer | http://localhost:5173 |
 | Editor | http://localhost:5174 |
-| API | http://localhost:3001 |
 
 ## 功能
 
@@ -60,39 +58,29 @@ chmod +x *.sh
 - 跨楼层导航路径规划 (A* 算法)
 - 导航路径 3D 可视化
 - 环境监测数据展示 (温度、湿度等)
+- 加载静态 JSON 数据，无需服务器
 
 ### Editor (编辑器)
 - 建筑增删改查
 - 楼层管理 (名称、尺寸、高度)
 - 导航节点编辑 (添加、删除、类型切换)
 - 节点连接管理
+- **导入/导出 JSON** - 数据保存在本地，可导出分享
 
-## API
+## 数据文件
 
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| GET | /api/buildings | 建筑列表 |
-| POST | /api/buildings | 创建建筑 |
-| GET | /api/buildings/:id | 获取建筑详情 |
-| PUT | /api/buildings/:id | 更新建筑 |
-| DELETE | /api/buildings/:id | 删除建筑 |
-| POST | /api/buildings/:id/floors | 添加楼层 |
-| GET | /api/navigation/:buildingId | 获取导航图 |
-| PUT | /api/navigation/:buildingId | 更新导航图 |
-| GET | /api/monitors/:buildingId | 获取监测数据 |
-| GET | /api/health | 健康检查 |
+Viewer 使用 `apps/viewer/public/data/buildings.json` 作为数据源。
+
+Editor 支持：
+- 从 JSON 文件导入建筑数据
+- 导出建筑数据为 JSON 文件
+- 自动保存到浏览器 localStorage
 
 ## 开发
 
 ```bash
 # 安装依赖
 pnpm install
-
-# 生成 Prisma Client
-cd server && pnpm db:generate
-
-# 推送数据库变更
-cd server && pnpm db:push
 
 # 启动开发服务器
 pnpm dev

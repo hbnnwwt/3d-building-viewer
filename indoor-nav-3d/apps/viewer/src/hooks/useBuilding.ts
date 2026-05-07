@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Building } from '@indoor-nav/shared';
 
+interface BuildingsData {
+  buildings: Building[];
+}
+
 export function useBuilding(buildingId: string | null) {
   const [building, setBuilding] = useState<Building | null>(null);
   const [loading, setLoading] = useState(false);
@@ -9,12 +13,14 @@ export function useBuilding(buildingId: string | null) {
   useEffect(() => {
     if (!buildingId) return;
     setLoading(true);
-    fetch(`/api/buildings/${buildingId}`)
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to fetch');
-        return r.json();
+    fetch('/data/buildings.json')
+      .then(r => r.json())
+      .then((data: BuildingsData) => {
+        const found = data.buildings.find(b => b.id === buildingId);
+        if (!found) throw new Error('Building not found');
+        setBuilding(found);
+        setLoading(false);
       })
-      .then(data => { setBuilding(data); setLoading(false); })
       .catch(e => { setError(e.message); setLoading(false); });
   }, [buildingId]);
 
@@ -26,9 +32,12 @@ export function useBuildings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/buildings')
+    fetch('/data/buildings.json')
       .then(r => r.json())
-      .then(data => { setBuildings(data); setLoading(false); })
+      .then((data: BuildingsData) => {
+        setBuildings(data.buildings);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 

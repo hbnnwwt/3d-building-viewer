@@ -1,0 +1,112 @@
+{
+  "buildings": [
+    {
+      "id": "b1",
+      "name": "示例建筑",
+      "info": "这是一个示例建筑",
+      "floors": [
+        {
+          "id": "f1",
+          "buildingId": "b1",
+          "name": "1层",
+          "order": 1,
+          "geometry": {
+            "width": 100,
+            "depth": 100,
+            "floorHeight": 3
+          },
+          "brands": [
+            {
+              "id": "brand1",
+              "floorId": "f1",
+              "name": "咖啡店",
+              "position": { "x": 10, "y": 0, "z": 10 },
+              "size": { "width": 5, "depth": 5, "height": 3 }
+            },
+            {
+              "id": "brand2",
+              "floorId": "f1",
+              "name": "书店",
+              "position": { "x": -10, "y": 0, "z": 10 },
+              "size": { "width": 6, "depth": 4, "height": 3 }
+            }
+          ],
+          "navigationMesh": [
+            {
+              "id": "n1",
+              "floorId": "f1",
+              "position": { "x": 0, "y": 0.1, "z": 0 },
+              "type": "walkable",
+              "connections": ["n2"]
+            },
+            {
+              "id": "n2",
+              "floorId": "f1",
+              "position": { "x": 20, "y": 0.1, "z": 20 },
+              "type": "walkable",
+              "connections": ["n1"]
+            }
+          ]
+        },
+        {
+          "id": "f2",
+          "buildingId": "b1",
+          "name": "2层",
+          "order": 2,
+          "geometry": {
+            "width": 100,
+            "depth": 100,
+            "floorHeight": 3
+          },
+          "brands": [
+            {
+              "id": "brand3",
+              "floorId": "f2",
+              "name": "餐厅",
+              "position": { "x": 0, "y": 0, "z": -15 },
+              "size": { "width": 8, "depth": 6, "height": 3 }
+            }
+          ],
+          "navigationMesh": [
+            {
+              "id": "n3",
+              "floorId": "f2",
+              "position": { "x": 0, "y": 3.1, "z": 0 },
+              "type": "elevator",
+              "connections": ["n4"]
+            },
+            {
+              "id": "n4",
+              "floorId": "f2",
+              "position": { "x": 20, "y": 3.1, "z": 20 },
+              "type": "walkable",
+              "connections": ["n3"]
+            }
+          ]
+        }
+      ],
+      "monitors": [
+        {
+          "id": "m1",
+          "buildingId": "b1",
+          "floorId": "f1",
+          "type": "temperature",
+          "value": 24.5,
+          "unit": "°C",
+          "position": { "x": 0, "y": 2, "z": 0 },
+          "lastUpdate": "2026-05-07T10:00:00Z"
+        },
+        {
+          "id": "m2",
+          "buildingId": "b1",
+          "floorId": "f1",
+          "type": "humidity",
+          "value": 65,
+          "unit": "%",
+          "position": { "x": 10, "y": 2, "z": 10 },
+          "lastUpdate": "2026-05-07T10:00:00Z"
+        }
+      ]
+    }
+  ]
+}

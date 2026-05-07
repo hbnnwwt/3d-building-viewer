@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Monitor } from '@indoor-nav/shared';
 
 interface Props {
-  buildingId: string;
+  monitors: Monitor[];
   onClose: () => void;
 }
 
@@ -13,17 +12,7 @@ const typeLabels: Record<string, string> = {
   noise: '噪音'
 };
 
-export default function MonitorPanel({ buildingId, onClose }: Props) {
-  const [monitors, setMonitors] = useState<Monitor[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch(`/api/monitors/${buildingId}`)
-      .then(r => r.json())
-      .then(data => { setMonitors(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [buildingId]);
-
+export default function MonitorPanel({ monitors, onClose }: Props) {
   return (
     <div style={{
       position: 'absolute', left: 16, top: 16, width: 260,
@@ -35,9 +24,7 @@ export default function MonitorPanel({ buildingId, onClose }: Props) {
         <button onClick={onClose}>×</button>
       </div>
 
-      {loading ? (
-        <p>加载中...</p>
-      ) : monitors.length === 0 ? (
+      {monitors.length === 0 ? (
         <p style={{ color: '#666' }}>暂无监测数据</p>
       ) : (
         <div>
