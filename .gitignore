@@ -12,6 +12,7 @@ node_modules/
 #################
 indoor-nav-3d/apps/editor/dist/
 indoor-nav-3d/server/dist/
+indoor-nav-3d/dist/
 
 #################
 ## Misc

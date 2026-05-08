@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   base: '/3d-building-viewer/dist/viewer/',
   build: {
-    outDir: '../../dist/viewer',
+    outDir: '../../../dist/viewer',
     emptyOutDir: true
   },
   server: {
