@@ -10,7 +10,6 @@ node_modules/
 #################
 ## Build
 #################
-indoor-nav-3d/apps/viewer/dist/
 indoor-nav-3d/apps/editor/dist/
 indoor-nav-3d/server/dist/
 
@@ -19,6 +18,7 @@ indoor-nav-3d/server/dist/
 #################
 debug-scene.png
 *.review.txt
+!**/vite-env.d.ts
 
 #################
 ## Eclipse

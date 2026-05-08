@@ -4,7 +4,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  base: '/3d-building-viewer/dist/viewer/',
   build: {
     outDir: '../../dist/viewer',
     emptyOutDir: true

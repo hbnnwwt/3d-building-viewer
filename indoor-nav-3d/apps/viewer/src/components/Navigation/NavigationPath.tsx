@@ -1,11 +1,66 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { NavigationStep } from '@indoor-nav/shared';
 import { Line } from '@react-three/drei';
+import * as THREE from 'three';
 
 interface Props {
   path: NavigationStep[];
   visible: boolean;
   floorYOffsets: Map<string, number>;
+}
+
+function PathAgent({ points }: { points: THREE.Vector3[] }) {
+  const ref = useRef<THREE.Group>(null);
+  const progress = useRef(0);
+
+  useFrame((_, delta) => {
+    if (points.length < 2) return;
+    progress.current += delta * 0.15;
+    if (progress.current > 1) progress.current = 0;
+
+    const totalLen = points.length - 1;
+    const pos = progress.current * totalLen;
+    const seg = Math.min(Math.floor(pos), totalLen - 1);
+    const t = pos - seg;
+
+    const from = points[seg];
+    const to = points[seg + 1];
+    if (!ref.current || !from || !to) return;
+
+    ref.current.position.lerpVectors(from, to, t);
+
+    const dir = new THREE.Vector3().subVectors(to, from);
+    if (dir.length() > 0.001) {
+      const angle = Math.atan2(dir.x, dir.z);
+      ref.current.rotation.y = angle;
+    }
+  });
+
+  return (
+    <group ref={ref}>
+      {/* body */}
+      <mesh position={[0, 0.8, 0]}>
+        <capsuleGeometry args={[0.3, 0.8, 8, 16]} />
+        <meshStandardMaterial color="#ff6b35" emissive="#ff6b35" emissiveIntensity={0.3} />
+      </mesh>
+      {/* head */}
+      <mesh position={[0, 1.8, 0]}>
+        <sphereGeometry args={[0.35, 16, 16]} />
+        <meshStandardMaterial color="#ffcc80" emissive="#ffcc80" emissiveIntensity={0.2} />
+      </mesh>
+      {/* direction indicator */}
+      <mesh position={[0, 0.5, -0.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.2, 0.4, 8]} />
+        <meshStandardMaterial color="#ff6b35" emissive="#ff6b35" emissiveIntensity={0.5} />
+      </mesh>
+      {/* ground ring */}
+      <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.4, 0.55, 32]} />
+        <meshStandardMaterial color="#ff6b35" transparent opacity={0.4} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
 }
 
 export default function NavigationPath({ path, visible, floorYOffsets }: Props) {
@@ -22,6 +77,10 @@ export default function NavigationPath({ path, visible, floorYOffsets }: Props) 
     return result;
   }, [path, visible, floorYOffsets]);
 
+  const vec3Points = useMemo(() => {
+    return points.map(p => new THREE.Vector3(p[0], p[1], p[2]));
+  }, [points]);
+
   if (!visible || points.length < 2) return null;
 
   const firstPoint = path[0]?.points[0];
@@ -32,25 +91,51 @@ export default function NavigationPath({ path, visible, floorYOffsets }: Props) 
 
   return (
     <group>
+      {/* main path line */}
       <Line
         points={points}
-        color="#007bff"
-        lineWidth={3}
+        color="#3b82f6"
+        lineWidth={4}
+      />
+      {/* glow effect - wider transparent line underneath */}
+      <Line
+        points={points}
+        color="#93c5fd"
+        lineWidth={8}
+        transparent
+        opacity={0.3}
       />
 
+      {/* start marker */}
       {firstPoint && (
-        <mesh position={[firstPoint.x, firstY + 0.5, firstPoint.z]}>
-          <sphereGeometry args={[0.6, 16, 16]} />
-          <meshStandardMaterial color="#00ff00" />
-        </mesh>
+        <group position={[firstPoint.x, firstY + 0.5, firstPoint.z]}>
+          <mesh>
+            <cylinderGeometry args={[0.8, 0.8, 0.15, 32]} />
+            <meshStandardMaterial color="#22c55e" emissive="#22c55e" emissiveIntensity={0.4} />
+          </mesh>
+          <mesh position={[0, 0.8, 0]}>
+            <coneGeometry args={[0.4, 0.6, 4]} />
+            <meshStandardMaterial color="#22c55e" emissive="#22c55e" emissiveIntensity={0.6} />
+          </mesh>
+        </group>
       )}
 
+      {/* end marker */}
       {lastPoint && (
-        <mesh position={[lastPoint.x, lastY + 0.5, lastPoint.z]}>
-          <sphereGeometry args={[0.6, 16, 16]} />
-          <meshStandardMaterial color="#ff0000" />
-        </mesh>
+        <group position={[lastPoint.x, lastY + 0.5, lastPoint.z]}>
+          <mesh>
+            <cylinderGeometry args={[0.8, 0.8, 0.15, 32]} />
+            <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.4} />
+          </mesh>
+          <mesh position={[0, 0.8, 0]}>
+            <sphereGeometry args={[0.4, 16, 16]} />
+            <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.6} />
+          </mesh>
+        </group>
       )}
+
+      {/* moving agent */}
+      <PathAgent points={vec3Points} />
     </group>
   );
 }

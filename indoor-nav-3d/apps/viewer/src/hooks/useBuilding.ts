@@ -29,12 +29,13 @@ export function useBuildings() {
       setLoading(true);
       setError(null);
 
-      const jsonFiles = ['buildings.json', 'buildings2.json'];
+      const jsonFiles = ['buildings.json'];
 
       try {
+        const baseUrl = import.meta.env.BASE_URL;
         const results = await Promise.all(
           jsonFiles.map(file =>
-            fetch(`/data/${file}`).then(r => r.ok ? r.json() : null).catch(() => null)
+            fetch(`${baseUrl}data/${file}`).then(r => r.ok ? r.json() : null).catch(() => null)
           )
         );
         const allBuildings = results.filter((r): r is { buildings: Building[] } => r?.buildings != null).flatMap(r => r.buildings);

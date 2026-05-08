@@ -15,7 +15,17 @@ export default function App() {
   const [selectedFloor, setSelectedFloor] = useState<Floor | null>(null);
   const [editorTab, setEditorTab] = useState<EditorTab>('floor');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
+  const handleExport = () => {
+    const data = { buildings };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'buildings.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,21 +43,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ buildings }));
   }, [buildings]);
-
-  const handleExport = (type: 'data' | 'download') => {
-    setExportMenuOpen(false);
-    const data = { buildings };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'buildings.json';
-    if (type === 'data') {
-      alert('请将 buildings.json 放置到 viewer 的 public/data/ 目录中');
-    }
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -183,37 +178,9 @@ export default function App() {
         <button onClick={() => fileInputRef.current?.click()}>
           导入 JSON
         </button>
-        <div style={{ position: 'relative' }}>
-          <button onClick={() => setExportMenuOpen(!exportMenuOpen)}>
-            导出 JSON ▾
-          </button>
-          {exportMenuOpen && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              right: 0,
-              background: 'white',
-              border: '1px solid #ccc',
-              borderRadius: 4,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              zIndex: 1000,
-              minWidth: 160
-            }}>
-              <button
-                onClick={() => handleExport('data')}
-                style={{ display: 'block', width: '100%', padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}
-              >
-                导出到 data 文件夹
-              </button>
-              <button
-                onClick={() => handleExport('download')}
-                style={{ display: 'block', width: '100%', padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}
-              >
-                下载到本地
-              </button>
-            </div>
-          )}
-        </div>
+        <button onClick={handleExport}>
+          导出 JSON
+        </button>
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
