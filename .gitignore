@@ -1,4 +1,26 @@
 #################
+## Node
+#################
+node_modules/
+.vite/
+*.heapsnapshot
+.playwright-mcp/
+.workbuddy/
+
+#################
+## Build
+#################
+indoor-nav-3d/apps/viewer/dist/
+indoor-nav-3d/apps/editor/dist/
+indoor-nav-3d/server/dist/
+
+#################
+## Misc
+#################
+debug-scene.png
+*.review.txt
+
+#################
 ## Eclipse
 #################
 

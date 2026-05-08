@@ -14,14 +14,12 @@ export default function FloorEditor({ floor, onSave }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) { alert('楼层名称不能为空'); return; }
+    if (width <= 0 || depth <= 0 || floorHeight <= 0) { alert('尺寸必须大于 0'); return; }
     onSave({
       ...floor,
-      name,
-      geometry: {
-        width,
-        depth,
-        floorHeight
-      }
+      name: name.trim(),
+      geometry: { width, depth, floorHeight }
     });
   };
 
@@ -43,7 +41,7 @@ export default function FloorEditor({ floor, onSave }: Props) {
         <div>
           <label style={{ display: 'block', marginBottom: 4 }}>Width</label>
           <input
-            type="number"
+            type="number" min="1"
             value={width}
             onChange={e => setWidth(Number(e.target.value))}
             style={{ width: '100%', padding: 8 }}
@@ -52,7 +50,7 @@ export default function FloorEditor({ floor, onSave }: Props) {
         <div>
           <label style={{ display: 'block', marginBottom: 4 }}>Depth</label>
           <input
-            type="number"
+            type="number" min="1"
             value={depth}
             onChange={e => setDepth(Number(e.target.value))}
             style={{ width: '100%', padding: 8 }}
@@ -61,7 +59,7 @@ export default function FloorEditor({ floor, onSave }: Props) {
         <div>
           <label style={{ display: 'block', marginBottom: 4 }}>Height</label>
           <input
-            type="number"
+            type="number" min="1"
             value={floorHeight}
             onChange={e => setFloorHeight(Number(e.target.value))}
             style={{ width: '100%', padding: 8 }}

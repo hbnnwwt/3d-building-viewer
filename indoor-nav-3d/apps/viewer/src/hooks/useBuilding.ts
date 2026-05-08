@@ -6,10 +6,10 @@ const EDITOR_STORAGE_KEY = 'indoor-nav-editor-data';
 export function useBuildings() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<'file' | 'editor'>('file');
 
   useEffect(() => {
-    // Try to load from Editor's localStorage first
     const editorData = localStorage.getItem(EDITOR_STORAGE_KEY);
     if (editorData) {
       try {
@@ -20,31 +20,40 @@ export function useBuildings() {
           setLoading(false);
           return;
         }
-      } catch (e) {
-        console.warn('Failed to parse editor data', e);
+      } catch {
+        // Invalid localStorage data, fall through to file loading
       }
     }
 
-    // Fall back to scanning data folder for all JSON files in parallel
     const loadAllData = async () => {
-      // Mark as loading when entering the JSON fetch phase
       setLoading(true);
+      setError(null);
 
-      const jsonFiles = ['buildings.json', 'buildings2.json', 'buildings3.json', 'buildings4.json', 'buildings5.json'];
-      const results = await Promise.all(
-        jsonFiles.map(file =>
-          fetch(`/data/${file}`).then(r => r.ok ? r.json() : null).catch(() => null)
-        )
-      );
-      const allBuildings = results.filter(r => r?.buildings).flatMap(r => r.buildings);
+      const jsonFiles = ['buildings.json', 'buildings2.json'];
 
-      setBuildings(allBuildings);
-      setSource('file');
+      try {
+        const results = await Promise.all(
+          jsonFiles.map(file =>
+            fetch(`/data/${file}`).then(r => r.ok ? r.json() : null).catch(() => null)
+          )
+        );
+        const allBuildings = results.filter((r): r is { buildings: Building[] } => r?.buildings != null).flatMap(r => r.buildings);
+
+        if (allBuildings.length === 0) {
+          setError('未找到建筑数据，请确认 data 目录下有 buildings.json 文件');
+        } else {
+          setBuildings(allBuildings);
+          setSource('file');
+        }
+      } catch {
+        setError('加载建筑数据失败，请刷新页面重试');
+      }
+
       setLoading(false);
     };
 
     loadAllData();
   }, []);
 
-  return { buildings, loading, source };
+  return { buildings, loading, error, source };
 }

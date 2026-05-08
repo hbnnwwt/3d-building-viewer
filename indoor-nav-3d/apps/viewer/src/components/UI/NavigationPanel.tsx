@@ -12,12 +12,12 @@ export default function NavigationPanel({ building, onClose, onNavigate }: Props
   const [toFloor, setToFloor] = useState(building.floors[1]?.id || '');
 
   const handleNavigate = () => {
-    if (fromFloor && toFloor && fromFloor !== toFloor) {
+    if (fromFloor && toFloor) {
       onNavigate(fromFloor, toFloor);
     }
   };
 
-  const isValid = fromFloor && toFloor && fromFloor !== toFloor;
+  const isValid = fromFloor && toFloor && fromFloor !== '';
 
   return (
     <section

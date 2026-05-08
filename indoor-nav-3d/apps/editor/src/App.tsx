@@ -16,21 +16,20 @@ export default function App() {
   const [editorTab, setEditorTab] = useState<EditorTab>('floor');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
-  // Load from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
         const data = JSON.parse(stored);
         setBuildings(data.buildings || []);
-      } catch (e) {
-        console.error('Failed to load data from localStorage', e);
+      } catch {
+        // Corrupted localStorage data, ignore
       }
     }
   }, []);
 
-  // Save to localStorage whenever buildings change
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ buildings }));
   }, [buildings]);
@@ -42,10 +41,8 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    if (type === 'download') {
-      a.download = 'buildings.json';
-    } else {
-      a.download = 'buildings.json';
+    a.download = 'buildings.json';
+    if (type === 'data') {
       alert('请将 buildings.json 放置到 viewer 的 public/data/ 目录中');
     }
     a.click();
@@ -56,6 +53,13 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (buildings.length > 0) {
+      if (!confirm('导入将覆盖当前所有数据，是否继续？')) {
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -64,13 +68,14 @@ export default function App() {
           setBuildings(data.buildings);
           setSelectedBuilding(null);
           setSelectedFloor(null);
+        } else {
+          alert('JSON 文件格式错误：缺少 buildings 字段');
         }
-      } catch (err) {
-        alert('Invalid JSON file');
+      } catch {
+        alert('JSON 解析失败，请检查文件格式');
       }
     };
     reader.readAsText(file);
-    // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -87,29 +92,46 @@ export default function App() {
     setSelectedBuilding(newBuilding);
   };
 
+  const handleDeleteBuilding = (buildingId: string) => {
+    if (!confirm('确认删除此建筑及其所有楼层？')) return;
+    setBuildings(buildings.filter(b => b.id !== buildingId));
+    if (selectedBuilding?.id === buildingId) {
+      setSelectedBuilding(null);
+      setSelectedFloor(null);
+    }
+  };
+
   const handleSelectBuilding = (building: Building) => {
     setSelectedBuilding(building);
     setSelectedFloor(null);
+    setSelectedNodeId(null);
   };
 
   const handleSaveFloor = (floor: Partial<Floor>) => {
     if (!selectedBuilding) return;
-    const newFloor: Floor = {
-      id: `f${Date.now()}`,
-      buildingId: selectedBuilding.id,
-      name: floor.name || 'New Floor',
-      order: floor.order ?? selectedBuilding.floors.length,
-      geometry: floor.geometry || { width: 100, depth: 100, floorHeight: 3 },
-      navigationMesh: [],
-      brands: []
-    };
-    const updatedBuilding = {
-      ...selectedBuilding,
-      floors: [...selectedBuilding.floors, newFloor]
-    };
+
+    const existing = floor.id ? selectedBuilding.floors.find(f => f.id === floor.id) : null;
+
+    const savedFloor: Floor = existing
+      ? { ...existing, ...floor }
+      : {
+          id: `f${Date.now()}`,
+          buildingId: selectedBuilding.id,
+          name: floor.name || 'New Floor',
+          order: floor.order ?? selectedBuilding.floors.length,
+          geometry: floor.geometry || { width: 100, depth: 100, floorHeight: 3 },
+          navigationMesh: [],
+          brands: []
+        };
+
+    const updatedFloors = existing
+      ? selectedBuilding.floors.map(f => f.id === savedFloor.id ? savedFloor : f)
+      : [...selectedBuilding.floors, savedFloor];
+
+    const updatedBuilding = { ...selectedBuilding, floors: updatedFloors };
     setSelectedBuilding(updatedBuilding);
     setBuildings(buildings.map(b => b.id === updatedBuilding.id ? updatedBuilding : b));
-    setSelectedFloor(newFloor);
+    setSelectedFloor(savedFloor);
   };
 
   const handleDeleteFloor = (floorId: string) => {
@@ -145,7 +167,8 @@ export default function App() {
         gap: 8,
         padding: '8px 16px',
         borderBottom: '1px solid #ccc',
-        background: '#f5f5f5'
+        background: '#f5f5f5',
+        position: 'relative'
       }}>
         <h2 style={{ margin: 0 }}>Building Editor</h2>
         <div style={{ flex: 1 }} />
@@ -160,38 +183,41 @@ export default function App() {
         <button onClick={() => fileInputRef.current?.click()}>
           导入 JSON
         </button>
-        <button onClick={() => setExportMenuOpen(!exportMenuOpen)} style={{ position: 'relative' }}>
-          导出 JSON ▾
-        </button>
-        {exportMenuOpen && (
-          <div style={{
-            position: 'absolute',
-            top: '100%',
-            right: 0,
-            background: 'white',
-            border: '1px solid #ccc',
-            borderRadius: 4,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 1000
-          }}>
-            <button
-              onClick={() => handleExport('data')}
-              style={{ display: 'block', width: '100%', padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer' }}
-            >
-              导出到 data 文件夹
-            </button>
-            <button
-              onClick={() => handleExport('download')}
-              style={{ display: 'block', width: '100%', padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer' }}
-            >
-              下载到本地
-            </button>
-          </div>
-        )}
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setExportMenuOpen(!exportMenuOpen)}>
+            导出 JSON ▾
+          </button>
+          {exportMenuOpen && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              background: 'white',
+              border: '1px solid #ccc',
+              borderRadius: 4,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 1000,
+              minWidth: 160
+            }}>
+              <button
+                onClick={() => handleExport('data')}
+                style={{ display: 'block', width: '100%', padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}
+              >
+                导出到 data 文件夹
+              </button>
+              <button
+                onClick={() => handleExport('download')}
+                style={{ display: 'block', width: '100%', padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}
+              >
+                下载到本地
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Left sidebar - building/floor list */}
+        {/* Left sidebar */}
         <div style={{ width: 280, borderRight: '1px solid #ccc', padding: 16, overflow: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <h3 style={{ margin: 0 }}>Buildings</h3>
@@ -200,22 +226,31 @@ export default function App() {
 
           <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0' }}>
             {buildings.map(b => (
-              <li key={b.id}>
+              <li key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
                 <button
                   onClick={() => handleSelectBuilding(b)}
                   style={{
-                    width: '100%',
+                    flex: 1,
                     textAlign: 'left',
                     padding: '8px 12px',
                     background: selectedBuilding?.id === b.id ? '#007bff' : 'transparent',
                     color: selectedBuilding?.id === b.id ? 'white' : 'inherit',
                     border: 'none',
                     borderRadius: 4,
-                    cursor: 'pointer',
-                    marginBottom: 4
+                    cursor: 'pointer'
                   }}
                 >
                   {b.name}
+                </button>
+                <button
+                  onClick={() => handleDeleteBuilding(b.id)}
+                  style={{
+                    padding: '4px 8px', border: 'none', background: 'transparent',
+                    color: '#dc3545', cursor: 'pointer', fontSize: 14
+                  }}
+                  title="删除建筑"
+                >
+                  ×
                 </button>
               </li>
             ))}
@@ -243,7 +278,6 @@ export default function App() {
         <div style={{ flex: 1, padding: 16, overflow: 'auto' }}>
           {selectedFloor ? (
             <>
-              {/* Tab buttons */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 <button
                   onClick={() => setEditorTab('floor')}
@@ -251,9 +285,7 @@ export default function App() {
                     padding: '8px 16px',
                     background: editorTab === 'floor' ? '#007bff' : '#e0e0e0',
                     color: editorTab === 'floor' ? 'white' : 'inherit',
-                    border: 'none',
-                    borderRadius: 4,
-                    cursor: 'pointer'
+                    border: 'none', borderRadius: 4, cursor: 'pointer'
                   }}
                 >
                   Floor Editor
@@ -264,9 +296,7 @@ export default function App() {
                     padding: '8px 16px',
                     background: editorTab === 'navpoint' ? '#007bff' : '#e0e0e0',
                     color: editorTab === 'navpoint' ? 'white' : 'inherit',
-                    border: 'none',
-                    borderRadius: 4,
-                    cursor: 'pointer'
+                    border: 'none', borderRadius: 4, cursor: 'pointer'
                   }}
                 >
                   Nav Point Editor
@@ -274,22 +304,23 @@ export default function App() {
               </div>
 
               {editorTab === 'floor' ? (
-                <FloorEditor floor={selectedFloor} onSave={handleSaveFloor} />
+                <FloorEditor key={selectedFloor.id} floor={selectedFloor} onSave={handleSaveFloor} />
               ) : (
                 <div style={{ display: 'flex', height: 'calc(100vh - 220px)' }}>
-                  {/* Left: NavPointList */}
                   <div style={{ width: 200, borderRight: '1px solid #ccc', paddingRight: 16 }}>
                     <h4>Navigation Nodes</h4>
                     <NavPointList
                       nodes={selectedFloor.navigationMesh || []}
-                      onSelect={(id) => console.log('Selected node:', id)}
+                      selectedId={selectedNodeId ?? undefined}
+                      onSelect={setSelectedNodeId}
                     />
                   </div>
-                  {/* Right: NavPointEditor 3D view */}
                   <div style={{ flex: 1 }}>
                     <NavPointEditor
                       floor={selectedFloor}
                       nodes={selectedFloor.navigationMesh || []}
+                      selectedNodeId={selectedNodeId}
+                      onSelectNode={setSelectedNodeId}
                       onUpdateNodes={(nodes) => handleUpdateNavNodes(selectedFloor.id, nodes)}
                     />
                   </div>

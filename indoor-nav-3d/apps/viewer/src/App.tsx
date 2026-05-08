@@ -3,10 +3,10 @@ import BuildingCanvas from './components/Canvas/BuildingCanvas';
 import NavigationPanel from './components/UI/NavigationPanel';
 import MonitorPanel from './components/UI/MonitorPanel';
 import { useBuildings } from './hooks/useBuilding';
-import { Building, NavigationStep, NavigationGraph, NavigationNode, findPath } from '@indoor-nav/shared';
+import { Building, NavigationStep, NavigationGraph, NavigationNode, findPathWithError } from '@indoor-nav/shared';
 
 export default function App() {
-  const { buildings, loading, source } = useBuildings();
+  const { buildings, loading, error, source } = useBuildings();
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [showNavPanel, setShowNavPanel] = useState(false);
   const [showMonitorPanel, setShowMonitorPanel] = useState(false);
@@ -16,6 +16,8 @@ export default function App() {
   const [fromNode, setFromNode] = useState<NavigationNode | null>(null);
   const [toNode, setToNode] = useState<NavigationNode | null>(null);
   const [path, setPath] = useState<NavigationStep[]>([]);
+  const [pathError, setPathError] = useState<string | null>(null);
+  const [activeFloorId, setActiveFloorId] = useState<string | null>(null);
 
   const handleNavigate = (fromFloorId: string, toFloorId: string) => {
     if (!selectedBuilding) return;
@@ -43,10 +45,15 @@ export default function App() {
     const toNodeInFloor = toFloor.navigationMesh?.find(n => n.type === 'walkable' || n.type === 'exit');
     if (!fromNodeInFloor || !toNodeInFloor) return;
 
-    const result = findPath(navigationGraph, fromNodeInFloor.id, toNodeInFloor.id);
-    setNavigationPath(result);
+    const result = findPathWithError(navigationGraph, fromNodeInFloor.id, toNodeInFloor.id);
+    if (result.error) {
+      setPathError(result.error);
+      return;
+    }
+    setNavigationPath(result.path);
     setShowPath(true);
     setShowNavPanel(false);
+    setPathError(null);
   };
 
   const resetNavMode = () => {
@@ -54,12 +61,16 @@ export default function App() {
     setFromNode(null);
     setToNode(null);
     setPath([]);
+    setPathError(null);
   };
 
   const handleNodeClick = (node: NavigationNode) => {
     if (!fromNode) {
+      // 第一次点击：设为起点
       setFromNode(node);
+      setPathError(null);
     } else if (!toNode && node.id !== fromNode.id) {
+      // 第二次点击：设为终点并计算路径
       setToNode(node);
       const allNodes = selectedBuilding!.floors.flatMap(f => f.navigationMesh || []);
       const edges: { from: string; to: string; weight: number }[] = [];
@@ -69,8 +80,20 @@ export default function App() {
         }
       }
       const navGraph = { buildingId: selectedBuilding!.id, nodes: allNodes, edges };
-      const result = findPath(navGraph, fromNode.id, node.id);
-      setPath(result);
+      const result = findPathWithError(navGraph, fromNode.id, node.id);
+      if (result.error) {
+        setPathError(result.error);
+        setPath([]);
+      } else {
+        setPath(result.path);
+        setPathError(null);
+      }
+    } else if (toNode) {
+      // 已选过起点和终点：重新开始选择（将当前点击作为新起点）
+      setFromNode(node);
+      setToNode(null);
+      setPath([]);
+      setPathError(null);
     }
   };
 
@@ -88,6 +111,30 @@ export default function App() {
     );
   }
 
+  if (error) {
+    return (
+      <div style={{
+        width: '100%', height: '100%',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: 'var(--color-bg-3d)', color: 'white', gap: 'var(--spacing-md)'
+      }}>
+        <span style={{ fontSize: 48 }}>⚠️</span>
+        <span style={{ fontSize: 16 }}>{error}</span>
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            padding: '10px 24px', background: 'var(--color-primary)', color: 'white',
+            border: 'none', borderRadius: 'var(--radius-md)', fontSize: 14, fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
+          重试
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--color-bg-3d)' }}>
       <a href="#main-content" className="skip-link">跳转到主要内容</a>
@@ -99,6 +146,7 @@ export default function App() {
         showPath={navMode ? path.length > 0 : showPath}
         onNodeClick={navMode ? handleNodeClick : undefined}
         selectedNodeId={navMode ? (fromNode && toNode ? toNode.id : fromNode ? fromNode.id : null) : null}
+        activeFloorId={activeFloorId}
       />
 
       {/* Building selector - floating top left */}
@@ -124,6 +172,7 @@ export default function App() {
             const b = buildings.find(b => b.id === e.target.value);
             setSelectedBuilding(b || null);
             setShowPath(false);
+            setActiveFloorId(null);
             resetNavMode();
           }}
           style={{
@@ -181,7 +230,14 @@ export default function App() {
             📊 监测
           </button>
           <button
-            onClick={() => { setNavMode(!navMode); resetNavMode(); }}
+            onClick={() => {
+               if (navMode) {
+                 setNavMode(false);
+                 resetNavMode();
+               } else {
+                 setNavMode(true);
+               }
+            }}
             aria-label={navMode ? '退出导航模式' : '进入导航模式'}
             aria-pressed={navMode}
             style={{
@@ -224,6 +280,65 @@ export default function App() {
           <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>
             {fromNode ? `已选: ${fromNode.type}` : '点击选择起点'} {toNode ? `→ ${toNode.type}` : ' → 点击选择终点'}
           </span>
+        </div>
+      )}
+
+      {/* Path error toast */}
+      {pathError && (
+        <div style={{
+          position: 'absolute', top: 130, left: 16, zIndex: 200,
+          background: '#ef4444', color: 'white',
+          padding: '10px 16px', borderRadius: 'var(--radius-md)',
+          boxShadow: 'var(--shadow-lg)', fontSize: 13,
+          display: 'flex', alignItems: 'center', gap: 10,
+          maxWidth: 360
+        }}>
+          <span style={{ flex: 1 }}>⚠ {pathError}</span>
+          <button
+            onClick={() => {
+              setPathError(null);
+              setFromNode(null);
+              setToNode(null);
+              setPath([]);
+            }}
+            style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 }}
+          >✕</button>
+        </div>
+      )}
+
+      {/* Floor selector */}
+      {selectedBuilding && (
+        <div style={{
+          position: 'absolute', top: 16, right: 16, zIndex: 100,
+          background: 'var(--color-surface)',
+          borderRadius: 'var(--radius-lg)',
+          padding: 'var(--spacing-sm)',
+          boxShadow: 'var(--shadow-md)',
+          display: 'flex', gap: 4
+        }}>
+          <button
+            onClick={() => setActiveFloorId(null)}
+            style={{
+              padding: '8px 14px', border: 'none', borderRadius: 'var(--radius-sm)',
+              background: activeFloorId === null ? 'var(--color-primary)' : 'transparent',
+              color: activeFloorId === null ? 'white' : 'var(--color-text)',
+              cursor: 'pointer', fontSize: 13, fontWeight: 600
+            }}
+          >全部</button>
+          {[...selectedBuilding.floors]
+            .sort((a, b) => a.order - b.order)
+            .map(floor => (
+              <button
+                key={floor.id}
+                onClick={() => setActiveFloorId(floor.id)}
+                style={{
+                  padding: '8px 14px', border: 'none', borderRadius: 'var(--radius-sm)',
+                  background: activeFloorId === floor.id ? 'var(--color-primary)' : 'transparent',
+                  color: activeFloorId === floor.id ? 'white' : 'var(--color-text)',
+                  cursor: 'pointer', fontSize: 13, fontWeight: 600
+                }}
+              >{floor.name}</button>
+            ))}
         </div>
       )}
 

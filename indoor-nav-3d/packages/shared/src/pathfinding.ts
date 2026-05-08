@@ -13,133 +13,125 @@ interface AStarNode {
   parent: string | null;
 }
 
-// Heuristic: Euclidean distance
-function heuristic(a: Position3D, b: Position3D): number {
-  return Math.sqrt(
-    Math.pow(a.x - b.x, 2) +
-    Math.pow(a.y - b.y, 2) +
-    Math.pow(a.z - b.z, 2)
-  );
+export interface PathResult {
+  path: NavigationStep[];
+  error?: string;
+}
+
+class MinHeap<T extends { f: number }> {
+  private data: T[] = [];
+
+  get size(): number {
+    return this.data.length;
+  }
+
+  push(item: T): void {
+    this.data.push(item);
+    this.bubbleUp(this.data.length - 1);
+  }
+
+  pop(): T | undefined {
+    if (this.data.length === 0) return undefined;
+    const top = this.data[0];
+    const last = this.data.pop()!;
+    if (this.data.length > 0) {
+      this.data[0] = last;
+      this.sinkDown(0);
+    }
+    return top;
+  }
+
+  private bubbleUp(i: number): void {
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.data[parent].f <= this.data[i].f) break;
+      [this.data[parent], this.data[i]] = [this.data[i], this.data[parent]];
+      i = parent;
+    }
+  }
+
+  private sinkDown(i: number): void {
+    const n = this.data.length;
+    while (true) {
+      let smallest = i;
+      const left = 2 * i + 1;
+      const right = 2 * i + 2;
+      if (left < n && this.data[left].f < this.data[smallest].f) smallest = left;
+      if (right < n && this.data[right].f < this.data[smallest].f) smallest = right;
+      if (smallest === i) break;
+      [this.data[smallest], this.data[i]] = [this.data[i], this.data[smallest]];
+      i = smallest;
+    }
+  }
 }
 
 function distance(a: Position3D, b: Position3D): number {
   return Math.sqrt(
-    Math.pow(a.x - b.x, 2) +
-    Math.pow(a.y - b.y, 2) +
-    Math.pow(a.z - b.z, 2)
+    (a.x - b.x) ** 2 +
+    (a.y - b.y) ** 2 +
+    (a.z - b.z) ** 2
   );
 }
 
-function buildAdjacencyList(graph: NavigationGraph): Map<string, Array<{nodeId: string; weight: number}>> {
-  const adj = new Map<string, Array<{nodeId: string; weight: number}>>();
+function buildAdjacencyList(graph: NavigationGraph): Map<string, Array<{ nodeId: string; weight: number }>> {
+  const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
+  const adj = new Map<string, Array<{ nodeId: string; weight: number }>>();
 
   for (const node of graph.nodes) {
-    adj.set(node.id, []);
+    const neighbors: Array<{ nodeId: string; weight: number }> = [];
     for (const connId of node.connections) {
-      const targetNode = graph.nodes.find(n => n.id === connId);
-      if (targetNode) {
-        const weight = distance(node.position, targetNode.position);
-        adj.get(node.id)!.push({ nodeId: connId, weight });
+      const target = nodeMap.get(connId);
+      if (target) {
+        neighbors.push({ nodeId: connId, weight: distance(node.position, target.position) });
       }
     }
+    adj.set(node.id, neighbors);
   }
 
   return adj;
 }
 
-function findNearestTransitNode(
-  graph: NavigationGraph,
-  floorId: string,
-  position: Position3D
-): NavigationNode | null {
-  const floorNodes = graph.nodes.filter(n => n.floorId === floorId && (n.type === 'elevator' || n.type === 'stair'));
-  if (floorNodes.length === 0) return null;
-
-  return floorNodes.reduce((nearest, node) => {
-    const dist = distance(position, node.position);
-    const nearestDist = nearest ? distance(position, nearest.position) : Infinity;
-    return dist < nearestDist ? node : nearest;
-  }, null as NavigationNode | null);
-}
-
-function findCrossFloorTransitNodes(
-  graph: NavigationGraph,
-  fromFloorId: string,
-  toFloorId: string
-): { fromTransit: NavigationNode | null; toTransit: NavigationNode | null } {
-  const fromFloorTransits = graph.nodes.filter(n => n.floorId === fromFloorId && (n.type === 'elevator' || n.type === 'stair'));
-  const toFloorTransits = graph.nodes.filter(n => n.floorId === toFloorId && (n.type === 'elevator' || n.type === 'stair'));
-
-  if (fromFloorTransits.length === 0 || toFloorTransits.length === 0) {
-    return { fromTransit: null, toTransit: null };
-  }
-
-  // Find the nearest pair of transit nodes between floors
-  let bestPair: { fromTransit: NavigationNode; toTransit: NavigationNode; dist: number } | null = null;
-
-  for (const fromTransit of fromFloorTransits) {
-    for (const toTransit of toFloorTransits) {
-      const dist = distance(fromTransit.position, toTransit.position);
-      if (!bestPair || dist < bestPair.dist) {
-        bestPair = { fromTransit, toTransit, dist };
-      }
-    }
-  }
-
-  return bestPair ? { fromTransit: bestPair.fromTransit, toTransit: bestPair.toTransit } : { fromTransit: null, toTransit: null };
-}
-
-export function findPath(
-  graph: NavigationGraph,
-  fromNodeId: string,
-  toNodeId: string
-): NavigationStep[] {
-  const fromNode = graph.nodes.find(n => n.id === fromNodeId);
-  const toNode = graph.nodes.find(n => n.id === toNodeId);
-
-  if (!fromNode || !toNode) return [];
-
-  // Same floor pathfinding
-  if (fromNode.floorId === toNode.floorId) {
-    return findSingleFloorPath(graph, fromNodeId, toNodeId);
-  }
-
-  // Cross-floor pathfinding via transit nodes
-  return findCrossFloorPath(graph, fromNode, toNode);
-}
-
-function findSingleFloorPath(
+function astarSearch(
   graph: NavigationGraph,
   fromId: string,
   toId: string
-): NavigationStep[] {
+): string[] {
   const adj = buildAdjacencyList(graph);
   const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
+  const toNode = nodeMap.get(toId);
+  if (!toNode) return [];
 
-  const openSet: AStarNode[] = [{
-    id: fromId,
-    g: 0,
-    h: heuristic(nodeMap.get(fromId)!.position, nodeMap.get(toId)!.position),
-    f: 0,
-    parent: null
-  }];
-  openSet[0].f = openSet[0].g + openSet[0].h;
-
+  const openSet = new MinHeap<AStarNode>();
+  const inOpen = new Map<string, AStarNode>();
   const closedSet = new Set<string>();
   const gScores = new Map<string, number>();
   const parentMap = new Map<string, string | null>();
+
+  const startNode = nodeMap.get(fromId);
+  if (!startNode) return [];
+
+  const startH = distance(startNode.position, toNode.position);
+  const startEntry: AStarNode = { id: fromId, g: 0, h: startH, f: startH, parent: null };
+  openSet.push(startEntry);
+  inOpen.set(fromId, startEntry);
   gScores.set(fromId, 0);
 
-  while (openSet.length > 0) {
-    // Get node with lowest f score
-    openSet.sort((a, b) => a.f - b.f);
-    const current = openSet.shift()!;
+  while (openSet.size > 0) {
+    const current = openSet.pop()!;
 
     if (current.id === toId) {
-      return reconstructSingleFloorPath(graph, current.id, parentMap);
+      const path: string[] = [];
+      let id: string | null = current.id;
+      while (id !== null) {
+        path.push(id);
+        id = parentMap.get(id) ?? null;
+      }
+      path.reverse();
+      return path;
     }
 
     closedSet.add(current.id);
+    inOpen.delete(current.id);
 
     const neighbors = adj.get(current.id) || [];
     for (const { nodeId, weight } of neighbors) {
@@ -154,20 +146,16 @@ function findSingleFloorPath(
         gScores.set(nodeId, tentativeG);
         parentMap.set(nodeId, current.id);
 
-        const existingIdx = openSet.findIndex(n => n.id === nodeId);
-        const h = heuristic(neighborNode.position, nodeMap.get(toId)!.position);
-        if (existingIdx !== -1) {
-          openSet[existingIdx].g = tentativeG;
-          openSet[existingIdx].f = tentativeG + h;
-          openSet[existingIdx].parent = current.id;
+        const h = distance(neighborNode.position, toNode.position);
+        const existing = inOpen.get(nodeId);
+        if (existing) {
+          existing.g = tentativeG;
+          existing.f = tentativeG + h;
+          existing.parent = current.id;
         } else {
-          openSet.push({
-            id: nodeId,
-            g: tentativeG,
-            h: h,
-            f: tentativeG + h,
-            parent: current.id
-          });
+          const entry: AStarNode = { id: nodeId, g: tentativeG, h, f: tentativeG + h, parent: current.id };
+          openSet.push(entry);
+          inOpen.set(nodeId, entry);
         }
       }
     }
@@ -176,74 +164,78 @@ function findSingleFloorPath(
   return [];
 }
 
-function reconstructSingleFloorPath(
+function splitPathIntoSteps(
   graph: NavigationGraph,
-  goalId: string,
-  parentMap: Map<string, string | null>
+  nodeIds: string[]
 ): NavigationStep[] {
+  if (nodeIds.length === 0) return [];
+
   const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
-  const path: Position3D[] = [];
-
-  // Trace back parents to build path
-  let currentId: string | null = goalId;
-  while (currentId !== null) {
-    const node = nodeMap.get(currentId);
-    if (!node) break;
-    path.push(node.position);
-    currentId = parentMap.get(currentId) ?? null;
-  }
-
-  if (path.length === 0) return [];
-
-  // Reverse to get start-to-goal order
-  path.reverse();
-
-  const goalNode = nodeMap.get(goalId)!;
-
-  return [{
-    floorId: goalNode.floorId,
-    points: path,
-    action: 'walk'
-  }];
-}
-
-function findCrossFloorPath(
-  graph: NavigationGraph,
-  fromNode: NavigationNode,
-  toNode: NavigationNode
-): NavigationStep[] {
   const steps: NavigationStep[] = [];
+  let currentFloorId = nodeMap.get(nodeIds[0])!.floorId;
+  let currentPoints: Position3D[] = [nodeMap.get(nodeIds[0])!.position];
 
-  // Find nearest transit nodes on each floor
-  const { fromTransit, toTransit } = findCrossFloorTransitNodes(graph, fromNode.floorId, toNode.floorId);
+  for (let i = 1; i < nodeIds.length; i++) {
+    const node = nodeMap.get(nodeIds[i])!;
+    const prevNode = nodeMap.get(nodeIds[i - 1])!;
 
-  if (!fromTransit || !toTransit) return [];
+    if (node.floorId !== currentFloorId) {
+      currentPoints.push(prevNode.position);
 
-  // Path segment: start -> fromFloor transit
-  const pathToTransit = findSingleFloorPath(graph, fromNode.id, fromTransit.id);
-  if (pathToTransit.length > 0) {
-    steps.push(...pathToTransit);
+      const transitAction: 'takeElevator' | 'takeStair' =
+        (prevNode.type === 'elevator' || node.type === 'elevator') ? 'takeElevator' : 'takeStair';
+
+      if (currentPoints.length >= 2) {
+        steps.push({ floorId: currentFloorId, points: [...currentPoints], action: 'walk' });
+      }
+
+      steps.push({
+        floorId: currentFloorId,
+        points: [prevNode.position, node.position],
+        action: transitAction
+      });
+
+      currentFloorId = node.floorId;
+      currentPoints = [node.position];
+    } else {
+      currentPoints.push(node.position);
+    }
   }
 
-  // Take elevator/stair between floors
-  const transitType = fromTransit.type === 'elevator' ? 'takeElevator' : 'takeStair';
-  steps.push({
-    floorId: fromTransit.floorId,
-    points: [fromTransit.position, toTransit.position],
-    action: transitType
-  });
-
-  // Path segment: toFloor transit -> goal
-  const pathFromTransit = findSingleFloorPath(graph, toTransit.id, toNode.id);
-  if (pathFromTransit.length > 0) {
-    // Update the floorId to the destination floor
-    pathFromTransit.forEach(step => {
-      step.floorId = toNode.floorId;
-    });
-    steps.push(...pathFromTransit);
+  if (currentPoints.length >= 1) {
+    steps.push({ floorId: currentFloorId, points: currentPoints, action: 'walk' });
   }
 
   return steps;
+}
+
+export function findPath(
+  graph: NavigationGraph,
+  fromNodeId: string,
+  toNodeId: string
+): NavigationStep[] {
+  const result = findPathWithError(graph, fromNodeId, toNodeId);
+  return result.path;
+}
+
+export function findPathWithError(
+  graph: NavigationGraph,
+  fromNodeId: string,
+  toNodeId: string
+): PathResult {
+  const fromNode = graph.nodes.find(n => n.id === fromNodeId);
+  const toNode = graph.nodes.find(n => n.id === toNodeId);
+
+  if (!fromNode) return { path: [], error: '起点节点不存在' };
+  if (!toNode) return { path: [], error: '终点节点不存在' };
+
+  const nodeIds = astarSearch(graph, fromNodeId, toNodeId);
+  if (nodeIds.length === 0) {
+    return { path: [], error: '无法找到路径，请检查节点之间的连接' };
+  }
+
+  const path = splitPathIntoSteps(graph, nodeIds);
+  return { path };
 }
 
 export function calculateTotalDistance(steps: NavigationStep[]): number {

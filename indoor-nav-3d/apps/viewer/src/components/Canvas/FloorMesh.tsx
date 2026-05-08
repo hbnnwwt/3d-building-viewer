@@ -9,19 +9,18 @@ interface Props {
   selectedNodeId?: string | null;
 }
 
-// Three.js doesn't support CSS variables - use actual hex colors
 const NODE_COLORS: Record<string, number> = {
-  walkable: 0x3b82f6,   // blue
-  entrance: 0x22c55e,   // green
-  exit: 0xef4444,      // red
-  elevator: 0xf59e0b,   // amber
-  stair: 0x8b5cf6,     // purple
+  walkable: 0x3b82f6,
+  entrance: 0x22c55e,
+  exit: 0xef4444,
+  elevator: 0xf59e0b,
+  stair: 0x8b5cf6,
 };
 
-const FLOOR_COLOR = 0xe5e7eb;      // var(--color-border) = #e5e7eb
-const EDGE_COLOR = 0x6b7280;        // var(--color-text-muted) = #6b7280
-const BRAND_COLOR = 0x007bff;      // var(--color-primary) = #007bff
-const SELECTED_COLOR = 0xef4444;   // var(--color-node-exit) = #ef4444
+const FLOOR_COLOR = 0xe5e7eb;
+const EDGE_COLOR = 0x6b7280;
+const BRAND_COLOR = 0x007bff;
+const SELECTED_COLOR = 0xef4444;
 
 export default function FloorMesh({ floor, yOffset, onNodeClick, selectedNodeId }: Props) {
   const { width, depth } = floor.geometry || { width: 100, depth: 100 };
@@ -48,7 +47,6 @@ export default function FloorMesh({ floor, yOffset, onNodeClick, selectedNodeId 
           <meshStandardMaterial color={BRAND_COLOR} />
         </mesh>
       ))}
-      {/* Navigation nodes */}
       {floor.navigationMesh?.map(node => (
         <mesh
           key={node.id}
