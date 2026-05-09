@@ -110,12 +110,15 @@ export default function App() {
 
     const existing = floor.id ? selectedBuilding.floors.find(f => f.id === floor.id) : null;
 
+    const floorNumber = existing ? existing.order + 1 : selectedBuilding.floors.length + 1;
+    const defaultName = `F${floorNumber}`;
+
     const savedFloor: Floor = existing
       ? { ...existing, ...floor }
       : {
           id: `f${Date.now()}`,
           buildingId: selectedBuilding.id,
-          name: floor.name || 'New Floor',
+          name: floor.name || defaultName,
           order: floor.order ?? selectedBuilding.floors.length,
           geometry: floor.geometry || { width: 100, depth: 100, floorHeight: 3 },
           navigationMesh: [],
@@ -243,7 +246,7 @@ export default function App() {
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
                 <h4 style={{ margin: 0 }}>Floors</h4>
-                <button onClick={() => handleSaveFloor({})} style={{ fontSize: 12, padding: '4px 8px' }}>
+                <button onClick={() => { handleSaveFloor({}); setEditorTab('floor'); }} style={{ fontSize: 12, padding: '4px 8px' }}>
                   + Add
                 </button>
               </div>
