@@ -1,4 +1,4 @@
-import { Floor, NavigationNode } from '@indoor-nav/shared';
+import { Floor, NavigationNode, NODE_COLORS } from '@indoor-nav/shared';
 import { useMemo } from 'react';
 import * as THREE from 'three';
 
@@ -9,18 +9,18 @@ interface Props {
   selectedNodeId?: string | null;
 }
 
-const NODE_COLORS: Record<string, number> = {
-  walkable: 0x3b82f6,
-  entrance: 0x22c55e,
-  exit: 0xef4444,
-  elevator: 0xf59e0b,
-  stair: 0x8b5cf6,
-};
-
 const FLOOR_COLOR = 0xe5e7eb;
 const EDGE_COLOR = 0x6b7280;
-const BRAND_COLOR = 0x007bff;
 const SELECTED_COLOR = 0xef4444;
+
+function brandColor(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = ((hash & 0xffff) % 360);
+  return new THREE.Color(`hsl(${hue}, 60%, 55%)`).getHex();
+}
 
 export default function FloorMesh({ floor, yOffset, onNodeClick, selectedNodeId }: Props) {
   const { width, depth } = floor.geometry || { width: 100, depth: 100 };
@@ -41,10 +41,10 @@ export default function FloorMesh({ floor, yOffset, onNodeClick, selectedNodeId 
       {floor.brands?.map(brand => (
         <mesh
           key={brand.id}
-          position={[brand.position.x, brand.position.y + 1, brand.position.z]}
+          position={[brand.position.x, brand.position.y + brand.size.height / 2, brand.position.z]}
         >
           <boxGeometry args={[brand.size.width, brand.size.height, brand.size.depth]} />
-          <meshStandardMaterial color={BRAND_COLOR} />
+          <meshStandardMaterial color={brandColor(brand.name || brand.id)} />
         </mesh>
       ))}
       {floor.navigationMesh?.map(node => (
@@ -58,7 +58,7 @@ export default function FloorMesh({ floor, yOffset, onNodeClick, selectedNodeId 
         >
           <sphereGeometry args={[0.8, 16, 16]} />
           <meshStandardMaterial
-            color={selectedNodeId === node.id ? SELECTED_COLOR : (NODE_COLORS[node.type] || EDGE_COLOR)}
+            color={selectedNodeId === node.id ? SELECTED_COLOR : (NODE_COLORS[node.type]?.numeric ?? EDGE_COLOR)}
           />
         </mesh>
       ))}

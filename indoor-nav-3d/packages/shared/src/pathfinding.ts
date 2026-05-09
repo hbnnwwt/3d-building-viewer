@@ -76,14 +76,24 @@ function distance(a: Position3D, b: Position3D): number {
 function buildAdjacencyList(graph: NavigationGraph): Map<string, Array<{ nodeId: string; weight: number }>> {
   const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
   const adj = new Map<string, Array<{ nodeId: string; weight: number }>>();
+  const pref = graph.transitPreference;
 
   for (const node of graph.nodes) {
     const neighbors: Array<{ nodeId: string; weight: number }> = [];
     for (const connId of node.connections) {
       const target = nodeMap.get(connId);
-      if (target) {
-        neighbors.push({ nodeId: connId, weight: distance(node.position, target.position) });
+      if (!target) continue;
+
+      let w = distance(node.position, target.position);
+
+      if (pref && node.floorId !== target.floorId) {
+        const isElevator = node.type === 'elevator' || target.type === 'elevator';
+        const isStair = node.type === 'stair' || target.type === 'stair';
+        if (isElevator) w *= pref === 'elevator' ? 0.5 : 2.0;
+        if (isStair) w *= pref === 'stair' ? 0.5 : 2.0;
       }
+
+      neighbors.push({ nodeId: connId, weight: w });
     }
     adj.set(node.id, neighbors);
   }

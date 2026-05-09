@@ -65,6 +65,7 @@ export interface NavigationGraph {
   buildingId: string;
   nodes: NavigationNode[];
   edges: NavigationEdge[];
+  transitPreference?: 'elevator' | 'stair';
 }
 
 export interface Monitor {

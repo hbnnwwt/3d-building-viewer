@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import BuildingCanvas from './components/Canvas/BuildingCanvas';
-import NavigationPanel from './components/UI/NavigationPanel';
 import MonitorPanel from './components/UI/MonitorPanel';
 import { useBuildings } from './hooks/useBuilding';
-import { Building, NavigationStep, NavigationGraph, NavigationNode, findPathWithError } from '@indoor-nav/shared';
+import { Building, NavigationStep, NavigationNode, findPathWithError, NODE_COLORS } from '@indoor-nav/shared';
 
 export default function App() {
   const { buildings, loading, error, source } = useBuildings();
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
-  const [showNavPanel, setShowNavPanel] = useState(false);
   const [showMonitorPanel, setShowMonitorPanel] = useState(false);
   const [navigationPath, setNavigationPath] = useState<NavigationStep[]>([]);
   const [showPath, setShowPath] = useState(false);
@@ -18,43 +16,7 @@ export default function App() {
   const [path, setPath] = useState<NavigationStep[]>([]);
   const [pathError, setPathError] = useState<string | null>(null);
   const [activeFloorId, setActiveFloorId] = useState<string | null>(null);
-
-  const handleNavigate = (fromFloorId: string, toFloorId: string) => {
-    if (!selectedBuilding) return;
-
-    const allNodes = selectedBuilding.floors.flatMap(f => f.navigationMesh || []);
-    const edges: { from: string; to: string; weight: number }[] = [];
-
-    for (const node of allNodes) {
-      for (const connId of node.connections) {
-        edges.push({ from: node.id, to: connId, weight: 1 });
-      }
-    }
-
-    const navigationGraph: NavigationGraph = {
-      buildingId: selectedBuilding.id,
-      nodes: allNodes,
-      edges: edges.map(e => ({ from: e.from, to: e.to, weight: e.weight }))
-    };
-
-    const fromFloor = selectedBuilding.floors.find(f => f.id === fromFloorId);
-    const toFloor = selectedBuilding.floors.find(f => f.id === toFloorId);
-    if (!fromFloor || !toFloor) return;
-
-    const fromNodeInFloor = fromFloor.navigationMesh?.find(n => n.type === 'walkable' || n.type === 'entrance');
-    const toNodeInFloor = toFloor.navigationMesh?.find(n => n.type === 'walkable' || n.type === 'exit');
-    if (!fromNodeInFloor || !toNodeInFloor) return;
-
-    const result = findPathWithError(navigationGraph, fromNodeInFloor.id, toNodeInFloor.id);
-    if (result.error) {
-      setPathError(result.error);
-      return;
-    }
-    setNavigationPath(result.path);
-    setShowPath(true);
-    setShowNavPanel(false);
-    setPathError(null);
-  };
+  const [transitPref, setTransitPref] = useState<'elevator' | 'stair'>('elevator');
 
   const resetNavMode = () => {
     setNavMode(false);
@@ -65,21 +27,20 @@ export default function App() {
   };
 
   const handleNodeClick = (node: NavigationNode) => {
+    if (!selectedBuilding) return;
     if (!fromNode) {
-      // 第一次点击：设为起点
       setFromNode(node);
       setPathError(null);
     } else if (!toNode && node.id !== fromNode.id) {
-      // 第二次点击：设为终点并计算路径
       setToNode(node);
-      const allNodes = selectedBuilding!.floors.flatMap(f => f.navigationMesh || []);
+      const allNodes = selectedBuilding.floors.flatMap(f => f.navigationMesh || []);
       const edges: { from: string; to: string; weight: number }[] = [];
       for (const n of allNodes) {
         for (const connId of n.connections) {
           edges.push({ from: n.id, to: connId, weight: 1 });
         }
       }
-      const navGraph = { buildingId: selectedBuilding!.id, nodes: allNodes, edges };
+      const navGraph = { buildingId: selectedBuilding.id, nodes: allNodes, edges, transitPreference: transitPref };
       const result = findPathWithError(navGraph, fromNode.id, node.id);
       if (result.error) {
         setPathError(result.error);
@@ -89,7 +50,6 @@ export default function App() {
         setPathError(null);
       }
     } else if (toNode) {
-      // 已选过起点和终点：重新开始选择（将当前点击作为新起点）
       setFromNode(node);
       setToNode(null);
       setPath([]);
@@ -198,22 +158,6 @@ export default function App() {
           display: 'flex', gap: 8, justifyContent: 'center'
         }}>
           <button
-            onClick={() => setShowNavPanel(!showNavPanel)}
-            aria-label="打开导航面板"
-            aria-pressed={showNavPanel}
-            style={{
-              flex: 1, maxWidth: 120, padding: '14px 20px',
-              background: showNavPanel ? 'var(--color-primary-dark)' : 'var(--color-surface)',
-              color: showNavPanel ? 'white' : 'var(--color-text)',
-              border: 'none', borderRadius: 'var(--radius-md)',
-              boxShadow: 'var(--shadow-lg)',
-              fontSize: 14, fontWeight: 600,
-              cursor: 'pointer', transition: 'all var(--transition-fast)'
-            }}
-          >
-            🧭 导航
-          </button>
-          <button
             onClick={() => setShowMonitorPanel(!showMonitorPanel)}
             aria-label="打开监测面板"
             aria-pressed={showMonitorPanel}
@@ -278,15 +222,58 @@ export default function App() {
             color: 'white', fontSize: 12
           }}>2</span>
           <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>
-            {fromNode ? `已选: ${fromNode.type}` : '点击选择起点'} {toNode ? `→ ${toNode.type}` : ' → 点击选择终点'}
+            {fromNode ? `已选: ${NODE_COLORS[fromNode.type]?.label || fromNode.type}` : '点击选择起点'} {toNode ? `→ ${NODE_COLORS[toNode.type]?.label || toNode.type}` : ' → 点击选择终点'}
           </span>
+          <span style={{ width: 1, height: 20, background: 'var(--color-border)', margin: '0 4px' }} />
+          <button
+            onClick={() => setTransitPref('elevator')}
+            style={{
+              padding: '4px 10px', fontSize: 12, fontWeight: 600,
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              background: transitPref === 'elevator' ? '#f59e0b' : 'var(--color-surface-elevated)',
+              color: transitPref === 'elevator' ? 'white' : 'var(--color-text)',
+              cursor: 'pointer'
+            }}
+          >直梯优先</button>
+          <button
+            onClick={() => setTransitPref('stair')}
+            style={{
+              padding: '4px 10px', fontSize: 12, fontWeight: 600,
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              background: transitPref === 'stair' ? '#8b5cf6' : 'var(--color-surface-elevated)',
+              color: transitPref === 'stair' ? 'white' : 'var(--color-text)',
+              cursor: 'pointer'
+            }}
+          >扶梯优先</button>
         </div>
       )}
 
-      {/* Path error toast */}
+      {/* Node type legend when in nav mode */}
+      {navMode && (
+        <div style={{
+          position: 'absolute', top: 130, left: 16, zIndex: 100,
+          background: 'var(--color-surface)',
+          padding: '10px 16px', borderRadius: 'var(--radius-md)',
+          boxShadow: 'var(--shadow-md)', fontSize: 12,
+          display: 'flex', flexDirection: 'column', gap: 6
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: 2 }}>节点图例</span>
+          {Object.entries(NODE_COLORS).map(([type, { label, hex }]) => (
+            <div key={type} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{
+                width: 12, height: 12, borderRadius: '50%',
+                background: hex, display: 'inline-block', flexShrink: 0
+              }} />
+              <span style={{ color: 'var(--color-text)' }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Path error toast - top right to avoid overlapping legend */}
       {pathError && (
         <div style={{
-          position: 'absolute', top: 130, left: 16, zIndex: 200,
+          position: 'absolute', top: 60, right: 16, zIndex: 200,
           background: '#ef4444', color: 'white',
           padding: '10px 16px', borderRadius: 'var(--radius-md)',
           boxShadow: 'var(--shadow-lg)', fontSize: 13,
@@ -297,7 +284,6 @@ export default function App() {
           <button
             onClick={() => {
               setPathError(null);
-              setFromNode(null);
               setToNode(null);
               setPath([]);
             }}
@@ -343,14 +329,6 @@ export default function App() {
       )}
 
       {/* Panels */}
-      {showNavPanel && selectedBuilding && (
-        <NavigationPanel
-          building={selectedBuilding}
-          onClose={() => setShowNavPanel(false)}
-          onNavigate={handleNavigate}
-        />
-      )}
-
       {showMonitorPanel && selectedBuilding && (
         <MonitorPanel
           monitors={selectedBuilding.monitors || []}

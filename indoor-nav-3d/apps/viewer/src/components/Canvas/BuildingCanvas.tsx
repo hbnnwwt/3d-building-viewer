@@ -43,9 +43,8 @@ export default function BuildingCanvas({ building, navigationPath, showPath, onN
 
   const visiblePath = useMemo(() => {
     if (!navigationPath || navigationPath.length === 0) return [];
-    if (!activeFloorId) return navigationPath;
-    return navigationPath.filter(step => step.floorId === activeFloorId);
-  }, [navigationPath, activeFloorId]);
+    return navigationPath;
+  }, [navigationPath]);
 
   if (!building) {
     return (

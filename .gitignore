@@ -8,6 +8,11 @@ node_modules/
 .workbuddy/
 
 #################
+## Build output (tracked for gh-pages)
+#################
+!dist/viewer/
+
+#################
 ## Build
 #################
 indoor-nav-3d/apps/editor/dist/

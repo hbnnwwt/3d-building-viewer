@@ -6,7 +6,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_PATH = resolve(__dirname, '../apps/viewer/public/data/buildings.json');
 
 const SAME_FLOOR_MAX_DIST = 28;
-const CROSS_FLOOR_MAX_DIST = 50;
+const CROSS_FLOOR_MAX_DIST = 30;
 
 function dist2D(a, b) {
   const dx = a.x - b.x;
@@ -43,7 +43,8 @@ function generateConnections(data) {
       }
     }
 
-    // Cross-floor: connect elevator/stair nodes to closest matching type on adjacent floors
+    // Cross-floor: 1-to-1 matching — each transit node pairs with the closest
+    // unpaired same-type node on the adjacent floor
     for (let fi = 0; fi < floors.length; fi++) {
       const floor = floors[fi];
       const adjIndices = [];
@@ -52,35 +53,43 @@ function generateConnections(data) {
 
       for (const adjIdx of adjIndices) {
         const adjFloor = floors[adjIdx];
-        const adjTransitNodes = (adjFloor.navigationMesh || []).filter(
-          n => n.type === 'elevator' || n.type === 'stair'
-        );
+        const transitTypes = ['elevator', 'stair'];
 
-        for (const node of floor.navigationMesh || []) {
-          if (node.type !== 'elevator' && node.type !== 'stair') continue;
-          let closest = null;
-          let closestDist = Infinity;
-          for (const adjNode of adjTransitNodes) {
-            if (adjNode.type !== node.type) continue;
-            const d = dist2D(node.position, adjNode.position);
-            if (d < closestDist) {
-              closestDist = d;
-              closest = adjNode;
+        for (const type of transitTypes) {
+          const fromNodes = (floor.navigationMesh || []).filter(n => n.type === type);
+          const toNodes = (adjFloor.navigationMesh || []).filter(n => n.type === type);
+          const used = new Set();
+
+          // Sort pairs by distance, greedily pick closest unmatched pairs
+          const pairs = [];
+          for (const a of fromNodes) {
+            for (const b of toNodes) {
+              pairs.push({ a, b, dist: dist2D(a.position, b.position) });
             }
           }
-          if (closest && closestDist <= CROSS_FLOOR_MAX_DIST) {
-            if (!node.connections.includes(closest.id)) {
-              node.connections.push(closest.id);
+          pairs.sort((x, y) => x.dist - y.dist);
+
+          for (const { a, b, dist } of pairs) {
+            if (used.has(a.id) || used.has(b.id)) continue;
+            if (dist > CROSS_FLOOR_MAX_DIST) {
+              console.log(`  跨层 ${type} 跳过: ${a.id}↔${b.id} 距离=${dist.toFixed(1)} > ${CROSS_FLOOR_MAX_DIST}`);
+              break;
             }
-            if (!closest.connections.includes(node.id)) {
-              closest.connections.push(node.id);
-            }
+            if (!a.connections.includes(b.id)) a.connections.push(b.id);
+            if (!b.connections.includes(a.id)) b.connections.push(a.id);
+            used.add(a.id);
+            used.add(b.id);
           }
+          const unpairedFrom = fromNodes.filter(n => !used.has(n.id));
+          const unpairedTo = toNodes.filter(n => !used.has(n.id));
+          if (unpairedFrom.length > 0) console.warn(`  ⚠ ${floor.name}→${adjFloor.name} 未配对 ${type}: ${unpairedFrom.map(n => n.id).join(', ')}`);
+          if (unpairedTo.length > 0) console.warn(`  ⚠ ${adjFloor.name}→${floor.name} 未配对 ${type}: ${unpairedTo.map(n => n.id).join(', ')}`);
         }
       }
     }
 
     // Ensure every node has at least one connection (connect to nearest if isolated)
+    const FALLBACK_MAX_DIST = SAME_FLOOR_MAX_DIST * 2;
     for (const floor of floors) {
       const nodes = floor.navigationMesh || [];
       for (const node of nodes) {
@@ -95,11 +104,13 @@ function generateConnections(data) {
             nearest = other;
           }
         }
-        if (nearest) {
+        if (nearest && nearestDist <= FALLBACK_MAX_DIST) {
           node.connections.push(nearest.id);
           if (!nearest.connections.includes(node.id)) {
             nearest.connections.push(node.id);
           }
+        } else if (nearest) {
+          console.warn(`  ⚠ 孤立节点 ${node.id} (type=${node.type}) 最近距离 ${nearestDist.toFixed(1)} 超过阈值 ${FALLBACK_MAX_DIST}，跳过连接`);
         }
       }
     }
