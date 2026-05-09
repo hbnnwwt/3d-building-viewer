@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { Floor, Shop, NavigationNode, SHOP_DEFAULTS, ENTRANCE_COLORS, rectangleToPolygon, nearestEdgePoint } from '@indoor-nav/shared';
+import { Floor, Shop, NavigationNode, Vertex2D, SHOP_DEFAULTS, ENTRANCE_COLORS, rectangleToPolygon, nearestEdgePoint, ensureCCW, isPointNearVertex } from '@indoor-nav/shared';
 import type { ThreeEvent } from '@react-three/fiber';
 import ShopPropertyPanel from './ShopPropertyPanel';
 
@@ -22,6 +22,10 @@ function generateShopId(): string {
 function generateEntranceId(): string {
   return `ent-${Date.now()}-${++shopCounter}`;
 }
+
+const CLOSE_THRESHOLD = 2;
+
+type DrawMode = 'idle' | 'polygon' | 'rectangle';
 
 function ShopMesh3D({ shop, selected, onClick }: { shop: Shop; selected: boolean; onClick: () => void }) {
   const v = shop.polygon.vertices;
@@ -66,47 +70,111 @@ function ShopMesh3D({ shop, selected, onClick }: { shop: Shop; selected: boolean
   );
 }
 
+function DrawingVertexMarkers({ vertices, pointerPos }: { vertices: Vertex2D[]; pointerPos: Vertex2D | null }) {
+  return (
+    <>
+      {vertices.map((v, i) => {
+        const isNear = i === 0 && vertices.length >= 3 && pointerPos
+          ? isPointNearVertex(pointerPos, v, CLOSE_THRESHOLD) : false;
+        return (
+          <mesh key={i} position={[v.x, 0.3, v.z]}>
+            <sphereGeometry args={[i === 0 ? (isNear ? 1.2 : 0.8) : 0.4, 12, 12]} />
+            <meshStandardMaterial color={i === 0 ? 0x22c55e : 0x3b82f6} />
+          </mesh>
+        );
+      })}
+    </>
+  );
+}
+
+function DrawingLines({ vertices, pointerPos }: { vertices: Vertex2D[]; pointerPos: Vertex2D | null }) {
+  if (vertices.length === 0) return null;
+  const points: THREE.Vector3[] = vertices.map(v => new THREE.Vector3(v.x, 0.2, v.z));
+  if (pointerPos) points.push(new THREE.Vector3(pointerPos.x, 0.2, pointerPos.z));
+  if (points.length < 2) return null;
+
+  const geo = new THREE.BufferGeometry().setFromPoints(points);
+  const mat = new THREE.LineBasicMaterial({ color: 0x3b82f6 });
+  const lineObj = new THREE.Line(geo, mat);
+  return <primitive object={lineObj} />;
+}
+
 export default function ShopEditor({ floor, shops, selectedShopId, onSelectShop, onUpdateShops, navNodes }: Props) {
-  const [isDrawMode, setIsDrawMode] = useState(false);
-  const [corner1, setCorner1] = useState<{ x: number; z: number } | null>(null);
-  const [pointerPos, setPointerPos] = useState<{ x: number; z: number } | null>(null);
+  const [drawMode, setDrawMode] = useState<DrawMode>('idle');
+  const [corner1, setCorner1] = useState<Vertex2D | null>(null);
+  const [tempVertices, setTempVertices] = useState<Vertex2D[]>([]);
+  const [pointerPos, setPointerPos] = useState<Vertex2D | null>(null);
   const [isEntranceMode, setIsEntranceMode] = useState(false);
 
   const selectedShop = shops.find(s => s.id === selectedShopId) || null;
 
   const handleFloorClick = (e: ThreeEvent<MouseEvent>) => {
-    if (!isDrawMode) return;
-    const pt = { x: e.point.x, z: e.point.z };
+    if (isEntranceMode) {
+      handleEntrancePlace(e);
+      return;
+    }
 
-    if (!corner1) {
-      setCorner1(pt);
-    } else {
-      const polygon = rectangleToPolygon(corner1.x, corner1.z, pt.x, pt.z);
-      const minW = Math.abs(pt.x - corner1.x);
-      const minD = Math.abs(pt.z - corner1.z);
-      if (minW < 2 || minD < 2) return;
+    const pt: Vertex2D = { x: e.point.x, z: e.point.z };
 
-      const newShop: Shop = {
-        id: generateShopId(),
-        floorId: floor.id,
-        name: `店铺 ${shops.length + 1}`,
-        polygon,
-        height: SHOP_DEFAULTS.height,
-        baseHeight: SHOP_DEFAULTS.baseHeight,
-        color: SHOP_DEFAULTS.color,
-        entrances: [],
-      };
-      onUpdateShops([...shops, newShop]);
-      onSelectShop(newShop.id);
-      setCorner1(null);
-      setIsDrawMode(false);
+    if (drawMode === 'rectangle') {
+      if (!corner1) {
+        setCorner1(pt);
+      } else {
+        const polygon = rectangleToPolygon(corner1.x, corner1.z, pt.x, pt.z);
+        const minW = Math.abs(pt.x - corner1.x);
+        const minD = Math.abs(pt.z - corner1.z);
+        if (minW < 2 || minD < 2) return;
+
+        const newShop: Shop = {
+          id: generateShopId(),
+          floorId: floor.id,
+          name: `店铺 ${shops.length + 1}`,
+          polygon,
+          height: SHOP_DEFAULTS.height,
+          baseHeight: SHOP_DEFAULTS.baseHeight,
+          color: SHOP_DEFAULTS.color,
+          entrances: [],
+        };
+        onUpdateShops([...shops, newShop]);
+        onSelectShop(newShop.id);
+        setCorner1(null);
+        setDrawMode('idle');
+      }
+      return;
+    }
+
+    if (drawMode === 'polygon') {
+      if (tempVertices.length >= 3 && isPointNearVertex(pt, tempVertices[0], CLOSE_THRESHOLD)) {
+        completePolygon(tempVertices);
+        return;
+      }
+      setTempVertices([...tempVertices, pt]);
     }
   };
 
+  const completePolygon = (verts: Vertex2D[]) => {
+    if (verts.length < 3) return;
+    const ccwVerts = ensureCCW(verts);
+    const newShop: Shop = {
+      id: generateShopId(),
+      floorId: floor.id,
+      name: `店铺 ${shops.length + 1}`,
+      polygon: { vertices: ccwVerts },
+      height: SHOP_DEFAULTS.height,
+      baseHeight: SHOP_DEFAULTS.baseHeight,
+      color: SHOP_DEFAULTS.color,
+      entrances: [],
+    };
+    onUpdateShops([...shops, newShop]);
+    onSelectShop(newShop.id);
+    setTempVertices([]);
+    setDrawMode('idle');
+    setPointerPos(null);
+  };
+
   const handleFloorPointerMove = (e: ThreeEvent<PointerEvent>) => {
-    if (isDrawMode && corner1) {
-      setPointerPos({ x: e.point.x, z: e.point.z });
-    }
+    if (drawMode === 'idle' && !isEntranceMode) return;
+    setPointerPos({ x: e.point.x, z: e.point.z });
   };
 
   const handleUpdateShop = (updated: Shop) => {
@@ -139,51 +207,96 @@ export default function ShopEditor({ floor, shops, selectedShopId, onSelectShop,
     setIsEntranceMode(false);
   };
 
-  const { width = 100, depth = 100 } = floor.geometry || {};
+  const cancelDrawing = () => {
+    setDrawMode('idle');
+    setCorner1(null);
+    setTempVertices([]);
+    setPointerPos(null);
+  };
 
   return (
     <div style={{ display: 'flex', height: '100%' }}>
       <div style={{ flex: 1 }}>
         <div style={{ padding: '8px 12px', background: '#f8f8f8', borderBottom: '1px solid #ddd', display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button
-            onClick={() => { setIsDrawMode(!isDrawMode); setCorner1(null); setIsEntranceMode(false); }}
-            style={{
-              padding: '6px 14px', border: 'none', borderRadius: 4, cursor: 'pointer',
-              background: isDrawMode ? '#28a745' : '#007bff', color: 'white', fontWeight: 600
-            }}
-          >
-            {isDrawMode ? '取消绘制' : '绘制店铺'}
-          </button>
-          {selectedShop && (
-            <button
-              onClick={() => { setIsEntranceMode(!isEntranceMode); }}
-              style={{
-                padding: '6px 14px', border: 'none', borderRadius: 4, cursor: 'pointer',
-                background: isEntranceMode ? '#28a745' : '#17a2b8', color: 'white'
-              }}
-            >
-              {isEntranceMode ? '取消添加入口' : '添加入口'}
+          {drawMode === 'idle' && !isEntranceMode ? (
+            <>
+              <button
+                onClick={() => { setDrawMode('polygon'); setTempVertices([]); }}
+                style={{ padding: '6px 14px', border: 'none', borderRadius: 4, cursor: 'pointer', background: '#007bff', color: 'white', fontWeight: 600 }}
+              >
+                绘制多边形
+              </button>
+              <button
+                onClick={() => { setDrawMode('rectangle'); setCorner1(null); }}
+                style={{ padding: '6px 14px', border: 'none', borderRadius: 4, cursor: 'pointer', background: '#6c757d', color: 'white' }}
+              >
+                绘制矩形
+              </button>
+            </>
+          ) : drawMode === 'polygon' ? (
+            <>
+              <button
+                onClick={() => completePolygon(tempVertices)}
+                disabled={tempVertices.length < 3}
+                style={{
+                  padding: '6px 14px', border: 'none', borderRadius: 4,
+                  cursor: tempVertices.length >= 3 ? 'pointer' : 'not-allowed',
+                  background: tempVertices.length >= 3 ? '#28a745' : '#ccc', color: 'white'
+                }}
+              >
+                完成 ({tempVertices.length} 点)
+              </button>
+              <button onClick={cancelDrawing} style={{ padding: '6px 14px', border: 'none', borderRadius: 4, cursor: 'pointer', background: '#dc3545', color: 'white' }}>
+                取消
+              </button>
+            </>
+          ) : drawMode === 'rectangle' ? (
+            <>
+              <button onClick={cancelDrawing} style={{ padding: '6px 14px', border: 'none', borderRadius: 4, cursor: 'pointer', background: '#dc3545', color: 'white' }}>
+                取消
+              </button>
+            </>
+          ) : null}
+
+          {isEntranceMode && (
+            <button onClick={() => setIsEntranceMode(false)} style={{ padding: '6px 14px', border: 'none', borderRadius: 4, cursor: 'pointer', background: '#dc3545', color: 'white' }}>
+              取消添加入口
             </button>
           )}
+
+          {!isEntranceMode && drawMode === 'idle' && selectedShop && (
+            <button
+              onClick={() => setIsEntranceMode(true)}
+              style={{ padding: '6px 14px', border: 'none', borderRadius: 4, cursor: 'pointer', background: '#17a2b8', color: 'white' }}
+            >
+              添加入口
+            </button>
+          )}
+
           <span style={{ fontSize: 12, color: '#666' }}>
-            {isDrawMode && !corner1 && '点击地板放置第一个角'}
-            {isDrawMode && corner1 && '点击放置对角'}
+            {drawMode === 'rectangle' && !corner1 && '点击放置矩形第一个角'}
+            {drawMode === 'rectangle' && corner1 && '点击放置对角'}
+            {drawMode === 'polygon' && tempVertices.length === 0 && '点击添加第一个顶点'}
+            {drawMode === 'polygon' && tempVertices.length > 0 && tempVertices.length < 3 && `已添加 ${tempVertices.length} 个顶点，至少需要 3 个`}
+            {drawMode === 'polygon' && tempVertices.length >= 3 && '继续添加顶点，点击首顶点或按钮完成'}
             {isEntranceMode && '点击店铺边缘放置入口'}
           </span>
         </div>
         <Canvas camera={{ position: [50, 50, 50], fov: 60 }}>
           <ambientLight />
           <pointLight position={[10, 10, 10]} />
+
+          {/* Large click plane for any floor shape */}
           <mesh
             rotation={[-Math.PI / 2, 0, 0]}
-            onClick={isEntranceMode ? handleEntrancePlace : handleFloorClick}
+            onClick={handleFloorClick}
             onPointerMove={handleFloorPointerMove}
           >
-            <planeGeometry args={[width, depth]} />
+            <planeGeometry args={[500, 500]} />
             <meshStandardMaterial color="#f0f0f0" />
           </mesh>
 
-          {/* Existing nav nodes for reference */}
+          {/* Nav nodes for reference */}
           {navNodes.map(node => (
             <mesh key={node.id} position={[node.position.x, node.position.y + 0.3, node.position.z]}>
               <sphereGeometry args={[0.3, 8, 8]} />
@@ -191,7 +304,7 @@ export default function ShopEditor({ floor, shops, selectedShopId, onSelectShop,
             </mesh>
           ))}
 
-          {/* Shops */}
+          {/* Existing shops */}
           {shops.map(shop => (
             <ShopMesh3D
               key={shop.id}
@@ -201,8 +314,8 @@ export default function ShopEditor({ floor, shops, selectedShopId, onSelectShop,
             />
           ))}
 
-          {/* Drawing preview */}
-          {isDrawMode && corner1 && pointerPos && (
+          {/* Rectangle preview */}
+          {drawMode === 'rectangle' && corner1 && pointerPos && (
             <mesh position={[
               (corner1.x + pointerPos.x) / 2,
               0.05,
@@ -216,7 +329,15 @@ export default function ShopEditor({ floor, shops, selectedShopId, onSelectShop,
             </mesh>
           )}
 
-          <OrbitControls />
+          {/* Polygon drawing preview */}
+          {drawMode === 'polygon' && tempVertices.length > 0 && (
+            <>
+              <DrawingLines vertices={tempVertices} pointerPos={pointerPos} />
+              <DrawingVertexMarkers vertices={tempVertices} pointerPos={pointerPos} />
+            </>
+          )}
+
+          <OrbitControls enabled={drawMode === 'idle' && !isEntranceMode} />
         </Canvas>
       </div>
 

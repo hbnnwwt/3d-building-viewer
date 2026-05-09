@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import { Building, NavigationNode, NavigationStep } from '@indoor-nav/shared';
+import { Building, NavigationNode, NavigationStep, getFloorOutline, polygonBoundingBox } from '@indoor-nav/shared';
 import FloorMesh from './FloorMesh';
 import NavigationPath from '../Navigation/NavigationPath';
 
@@ -16,8 +16,11 @@ interface Props {
 
 const FLOOR_SPACING_SCALE = 0.5;
 
-function floorSpacing(width: number, depth: number, floorHeight: number): number {
-  return Math.max(floorHeight, Math.sqrt(width * depth) * FLOOR_SPACING_SCALE);
+function floorSpacing(geometry: { width: number; depth: number; floorHeight: number; outline?: { vertices: { x: number; z: number }[] } }): number {
+  const outline = getFloorOutline(geometry);
+  const bb = polygonBoundingBox(outline.vertices);
+  const { floorHeight = 3 } = geometry;
+  return Math.max(floorHeight, Math.sqrt(bb.width * bb.depth) * FLOOR_SPACING_SCALE);
 }
 
 export default function BuildingCanvas({ building, navigationPath, showPath, onNodeClick, selectedNodeId, activeFloorId }: Props) {
@@ -28,8 +31,8 @@ export default function BuildingCanvas({ building, navigationPath, showPath, onN
     const sorted = [...building.floors].sort((a, b) => a.order - b.order);
     for (const floor of sorted) {
       map.set(floor.id, y);
-      const { width = 100, depth = 100, floorHeight = 3 } = floor.geometry || {};
-      y += floorSpacing(width, depth, floorHeight);
+      const geo = floor.geometry || { width: 100, depth: 100, floorHeight: 3 };
+      y += floorSpacing(geo);
     }
     return map;
   }, [building]);

@@ -8,6 +8,23 @@ export interface Building {
   updatedAt?: string;
 }
 
+export interface Vertex2D {
+  x: number;
+  z: number;
+}
+
+export interface Polygon2D {
+  vertices: Vertex2D[];
+}
+
+export interface FloorGeometry {
+  width: number;
+  depth: number;
+  floorHeight: number;
+  modelUrl?: string;
+  outline?: Polygon2D;
+}
+
 export interface Floor {
   id: string;
   buildingId: string;
@@ -19,13 +36,6 @@ export interface Floor {
   shops?: Shop[];
   createdAt?: string;
   updatedAt?: string;
-}
-
-export interface FloorGeometry {
-  width: number;
-  depth: number;
-  floorHeight: number;
-  modelUrl?: string;
 }
 
 export interface Brand {
@@ -95,15 +105,6 @@ export interface NavigationStep {
   floorId: string;
   points: Position3D[];
   action?: 'walk' | 'takeElevator' | 'takeStair' | 'enter' | 'exit';
-}
-
-export interface Vertex2D {
-  x: number;
-  z: number;
-}
-
-export interface Polygon2D {
-  vertices: Vertex2D[];
 }
 
 export interface ShopEntrance {

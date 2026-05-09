@@ -1,4 +1,4 @@
-import { Floor, NavigationNode, NODE_COLORS } from '@indoor-nav/shared';
+import { Floor, NavigationNode, NODE_COLORS, getFloorOutline, polygonCenter } from '@indoor-nav/shared';
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import ShopMesh from './ShopMesh';
@@ -23,28 +23,65 @@ function brandColor(name: string): number {
   return new THREE.Color(`hsl(${hue}, 60%, 55%)`).getHex();
 }
 
-export default function FloorMesh({ floor, yOffset, onNodeClick, selectedNodeId }: Props) {
-  const { width, depth } = floor.geometry || { width: 100, depth: 100 };
+function buildFloorGeometry(outline: { vertices: { x: number; z: number }[] }) {
+  const v = outline.vertices;
+  if (v.length < 3) return null;
+  const center = polygonCenter(v);
+  const shape = new THREE.Shape();
+  shape.moveTo(v[0].x - center.x, -(v[0].z - center.z));
+  for (let i = 1; i < v.length; i++) shape.lineTo(v[i].x - center.x, -(v[i].z - center.z));
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.2, bevelEnabled: false });
+  return { geometry: geo, center };
+}
 
-  const floorGeometry = useMemo(() => {
-    return new THREE.BoxGeometry(width, 0.2, depth);
-  }, [width, depth]);
+export default function FloorMesh({ floor, yOffset, onNodeClick, selectedNodeId }: Props) {
+  const outline = getFloorOutline(floor.geometry);
+
+  const floorGeo = useMemo(() => buildFloorGeometry(outline), [outline]);
+
+  const edgeGeo = useMemo(() => {
+    if (!floorGeo) return null;
+    return new THREE.EdgesGeometry(floorGeo.geometry);
+  }, [floorGeo]);
 
   return (
-    <group position={[0, yOffset, 0]}>
-      <mesh geometry={floorGeometry} position={[0, 0, 0]}>
-        <meshStandardMaterial color={FLOOR_COLOR} />
-      </mesh>
-      <lineSegments>
-        <edgesGeometry args={[floorGeometry]} />
-        <lineBasicMaterial color={EDGE_COLOR} />
-      </lineSegments>
-      {/* Shop rendering (new system) */}
+    <group position={floorGeo ? [floorGeo.center.x, yOffset, floorGeo.center.z] : [0, yOffset, 0]}>
+      {floorGeo ? (
+        <>
+          <group rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh geometry={floorGeo.geometry}>
+              <meshStandardMaterial color={FLOOR_COLOR} />
+            </mesh>
+            {edgeGeo && (
+              <lineSegments geometry={edgeGeo}>
+                <lineBasicMaterial color={EDGE_COLOR} />
+              </lineSegments>
+            )}
+          </group>
+        </>
+      ) : (
+        (() => {
+          const { width = 100, depth = 100 } = floor.geometry || {};
+          const boxGeo = new THREE.BoxGeometry(width, 0.2, depth);
+          return (
+            <>
+              <mesh geometry={boxGeo}>
+                <meshStandardMaterial color={FLOOR_COLOR} />
+              </mesh>
+              <lineSegments>
+                <edgesGeometry args={[boxGeo]} />
+                <lineBasicMaterial color={EDGE_COLOR} />
+              </lineSegments>
+            </>
+          );
+        })()
+      )}
+
       {floor.shops?.map(shop => (
         <ShopMesh key={shop.id} shop={shop} yOffset={0} />
       ))}
 
-      {/* Legacy brand rendering (backward compatibility) */}
       {(!floor.shops || floor.shops.length === 0) && floor.brands?.map(brand => (
         <mesh
           key={brand.id}

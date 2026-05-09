@@ -298,7 +298,7 @@ export default function App() {
               </div>
 
               {editorTab === 'floor' ? (
-                <FloorEditor key={selectedFloor.id} floor={selectedFloor} onSave={handleSaveFloor} />
+                <FloorEditor key={selectedFloor.id} floor={selectedFloor} onSave={handleSaveFloor} allFloors={selectedBuilding?.floors} />
               ) : editorTab === 'navpoint' ? (
                 <div style={{ display: 'flex', height: 'calc(100vh - 220px)' }}>
                   <div style={{ width: 200, borderRight: '1px solid #ccc', paddingRight: 16 }}>
