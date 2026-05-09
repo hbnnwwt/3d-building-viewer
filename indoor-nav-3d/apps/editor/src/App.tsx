@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { Building, Floor, NavigationNode } from '@indoor-nav/shared';
+import { Building, Floor, NavigationNode, Shop } from '@indoor-nav/shared';
 import FloorList from './components/FloorList';
 import FloorEditor from './components/FloorEditor';
 import NavPointEditor from './components/NavPointEditor';
 import NavPointList from './components/NavPointList';
+import ShopEditor from './components/ShopEditor';
+import ShopList from './components/ShopList';
 
-type EditorTab = 'floor' | 'navpoint';
+type EditorTab = 'floor' | 'navpoint' | 'shop';
 
 const STORAGE_KEY = 'indoor-nav-editor-data';
 
@@ -14,6 +16,7 @@ export default function App() {
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<Floor | null>(null);
   const [editorTab, setEditorTab] = useState<EditorTab>('floor');
+  const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
@@ -153,6 +156,19 @@ export default function App() {
     }
   };
 
+  const handleUpdateShops = (floorId: string, shops: Shop[]) => {
+    if (!selectedBuilding) return;
+    const updatedFloors = selectedBuilding.floors.map(f =>
+      f.id === floorId ? { ...f, shops } : f
+    );
+    const updatedBuilding = { ...selectedBuilding, floors: updatedFloors };
+    setSelectedBuilding(updatedBuilding);
+    setBuildings(buildings.map(b => b.id === updatedBuilding.id ? updatedBuilding : b));
+    if (selectedFloor?.id === floorId) {
+      setSelectedFloor({ ...selectedFloor, shops });
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       {/* Top toolbar */}
@@ -268,11 +284,22 @@ export default function App() {
                 >
                   Nav Point Editor
                 </button>
+                <button
+                  onClick={() => setEditorTab('shop')}
+                  style={{
+                    padding: '8px 16px',
+                    background: editorTab === 'shop' ? '#007bff' : '#e0e0e0',
+                    color: editorTab === 'shop' ? 'white' : 'inherit',
+                    border: 'none', borderRadius: 4, cursor: 'pointer'
+                  }}
+                >
+                  Shop Editor
+                </button>
               </div>
 
               {editorTab === 'floor' ? (
                 <FloorEditor key={selectedFloor.id} floor={selectedFloor} onSave={handleSaveFloor} />
-              ) : (
+              ) : editorTab === 'navpoint' ? (
                 <div style={{ display: 'flex', height: 'calc(100vh - 220px)' }}>
                   <div style={{ width: 200, borderRight: '1px solid #ccc', paddingRight: 16 }}>
                     <h4>Navigation Nodes</h4>
@@ -289,6 +316,27 @@ export default function App() {
                       selectedNodeId={selectedNodeId}
                       onSelectNode={setSelectedNodeId}
                       onUpdateNodes={(nodes) => handleUpdateNavNodes(selectedFloor.id, nodes)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', height: 'calc(100vh - 220px)' }}>
+                  <div style={{ width: 200, borderRight: '1px solid #ccc', paddingRight: 16 }}>
+                    <h4>Shops</h4>
+                    <ShopList
+                      shops={selectedFloor.shops || []}
+                      selectedId={selectedShopId ?? undefined}
+                      onSelect={setSelectedShopId}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <ShopEditor
+                      floor={selectedFloor}
+                      shops={selectedFloor.shops || []}
+                      selectedShopId={selectedShopId}
+                      onSelectShop={setSelectedShopId}
+                      onUpdateShops={(shops) => handleUpdateShops(selectedFloor.id, shops)}
+                      navNodes={selectedFloor.navigationMesh || []}
                     />
                   </div>
                 </div>

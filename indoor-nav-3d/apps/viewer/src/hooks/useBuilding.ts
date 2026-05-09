@@ -1,5 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Building } from '@indoor-nav/shared';
+import { Building, legacyBrandsToShops } from '@indoor-nav/shared';
+
+function normalizeBuildings(buildings: Building[]): Building[] {
+  return buildings.map(b => ({
+    ...b,
+    floors: b.floors.map(f => {
+      if ((!f.shops || f.shops.length === 0) && f.brands && f.brands.length > 0) {
+        return { ...f, shops: legacyBrandsToShops(f.brands, f.id) };
+      }
+      return f;
+    }),
+  }));
+}
 
 const EDITOR_STORAGE_KEY = 'indoor-nav-editor-data';
 
@@ -15,7 +27,7 @@ export function useBuildings() {
       try {
         const data = JSON.parse(editorData);
         if (data.buildings && data.buildings.length > 0) {
-          setBuildings(data.buildings);
+          setBuildings(normalizeBuildings(data.buildings));
           setSource('editor');
           setLoading(false);
           return;
@@ -43,7 +55,7 @@ export function useBuildings() {
         if (allBuildings.length === 0) {
           setError('未找到建筑数据，请确认 data 目录下有 buildings.json 文件');
         } else {
-          setBuildings(allBuildings);
+          setBuildings(normalizeBuildings(allBuildings));
           setSource('file');
         }
       } catch {

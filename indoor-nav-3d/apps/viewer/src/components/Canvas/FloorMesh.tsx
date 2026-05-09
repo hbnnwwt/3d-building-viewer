@@ -1,6 +1,7 @@
 import { Floor, NavigationNode, NODE_COLORS } from '@indoor-nav/shared';
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import ShopMesh from './ShopMesh';
 
 interface Props {
   floor: Floor;
@@ -38,7 +39,13 @@ export default function FloorMesh({ floor, yOffset, onNodeClick, selectedNodeId 
         <edgesGeometry args={[floorGeometry]} />
         <lineBasicMaterial color={EDGE_COLOR} />
       </lineSegments>
-      {floor.brands?.map(brand => (
+      {/* Shop rendering (new system) */}
+      {floor.shops?.map(shop => (
+        <ShopMesh key={shop.id} shop={shop} yOffset={0} />
+      ))}
+
+      {/* Legacy brand rendering (backward compatibility) */}
+      {(!floor.shops || floor.shops.length === 0) && floor.brands?.map(brand => (
         <mesh
           key={brand.id}
           position={[brand.position.x, brand.position.y + brand.size.height / 2, brand.position.z]}

@@ -5,3 +5,15 @@ export const NODE_COLORS: Record<string, { hex: string; numeric: number; label: 
   entrance:  { hex: '#22c55e', numeric: 0x22c55e, label: '入口' },
   exit:      { hex: '#ef4444', numeric: 0xef4444, label: '出口' },
 };
+
+export const SHOP_DEFAULTS = {
+  height: 3,
+  baseHeight: 0,
+  color: '#94a3b8',
+} as const;
+
+export const ENTRANCE_COLORS: Record<string, { hex: string; label: string }> = {
+  main:       { hex: '#22c55e', label: '主入口' },
+  side:       { hex: '#3b82f6', label: '侧入口' },
+  emergency:  { hex: '#ef4444', label: '紧急出口' },
+};

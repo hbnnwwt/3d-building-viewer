@@ -16,6 +16,7 @@ export interface Floor {
   geometry: FloorGeometry;
   navigationMesh?: NavigationNode[];
   brands?: Brand[];
+  shops?: Shop[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -94,4 +95,33 @@ export interface NavigationStep {
   floorId: string;
   points: Position3D[];
   action?: 'walk' | 'takeElevator' | 'takeStair' | 'enter' | 'exit';
+}
+
+export interface Vertex2D {
+  x: number;
+  z: number;
+}
+
+export interface Polygon2D {
+  vertices: Vertex2D[];
+}
+
+export interface ShopEntrance {
+  id: string;
+  shopId: string;
+  position: Vertex2D;
+  width: number;
+  type: 'main' | 'side' | 'emergency';
+  connectedNodeId?: string;
+}
+
+export interface Shop {
+  id: string;
+  floorId: string;
+  name: string;
+  polygon: Polygon2D;
+  height: number;
+  baseHeight: number;
+  color?: string;
+  entrances: ShopEntrance[];
 }
