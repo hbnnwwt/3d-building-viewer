@@ -2,8 +2,9 @@ import { useState, useMemo, useCallback } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { Floor, FloorGeometry, Vertex2D, Polygon2D, getFloorOutline, polygonCenter, ensureCCW, isPointNearVertex } from '@indoor-nav/shared';
+import { Floor, Vertex2D, Polygon2D, getFloorOutline, polygonCenter, ensureCCW, isPointNearVertex } from '@indoor-nav/shared';
 import type { ThreeEvent } from '@react-three/fiber';
+import EditorFloorMesh from './EditorFloorMesh';
 
 const CLOSE_THRESHOLD = 2;
 
@@ -181,15 +182,7 @@ export default function FloorCanvasEditor({ floor, outline, onOutlineChange }: P
           <ambientLight />
           <pointLight position={[10, 10, 10]} />
 
-          {/* Invisible large click plane */}
-          <mesh
-            rotation={[-Math.PI / 2, 0, 0]}
-            onClick={handleFloorClick}
-            onPointerMove={handlePointerMove}
-          >
-            <planeGeometry args={[500, 500]} />
-            <meshStandardMaterial color="#f0f0f0" />
-          </mesh>
+          <EditorFloorMesh floor={floor} onClick={handleFloorClick} onPointerMove={handlePointerMove} />
 
           {/* Current floor outline */}
           {currentOutline && (

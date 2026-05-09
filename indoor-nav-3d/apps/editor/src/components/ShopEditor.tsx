@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { Floor, Shop, NavigationNode, Vertex2D, SHOP_DEFAULTS, ENTRANCE_COLORS, rectangleToPolygon, nearestEdgePoint, ensureCCW, isPointNearVertex } from '@indoor-nav/shared';
 import type { ThreeEvent } from '@react-three/fiber';
 import ShopPropertyPanel from './ShopPropertyPanel';
+import EditorFloorMesh from './EditorFloorMesh';
 
 interface Props {
   floor: Floor;
@@ -286,15 +287,7 @@ export default function ShopEditor({ floor, shops, selectedShopId, onSelectShop,
           <ambientLight />
           <pointLight position={[10, 10, 10]} />
 
-          {/* Large click plane for any floor shape */}
-          <mesh
-            rotation={[-Math.PI / 2, 0, 0]}
-            onClick={handleFloorClick}
-            onPointerMove={handleFloorPointerMove}
-          >
-            <planeGeometry args={[500, 500]} />
-            <meshStandardMaterial color="#f0f0f0" />
-          </mesh>
+          <EditorFloorMesh floor={floor} onClick={handleFloorClick} onPointerMove={handleFloorPointerMove} />
 
           {/* Nav nodes for reference */}
           {navNodes.map(node => (

@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { NavigationNode, Floor, Position3D } from '@indoor-nav/shared';
 import type { ThreeEvent } from '@react-three/fiber';
+import EditorFloorMesh from './EditorFloorMesh';
 
 interface Props {
   floor: Floor;
@@ -163,10 +164,7 @@ export default function NavPointEditor({ floor, nodes, selectedNodeId, onSelectN
         <Canvas camera={{ position: [50, 50, 50], fov: 60 }}>
           <ambientLight />
           <pointLight position={[10, 10, 10]} />
-          <mesh rotation={[-Math.PI / 2, 0, 0]} onClick={handleCanvasClick}>
-            <planeGeometry args={[floor.geometry?.width || 100, floor.geometry?.depth || 100]} />
-            <meshStandardMaterial color="#f0f0f0" />
-          </mesh>
+          <EditorFloorMesh floor={floor} onClick={handleCanvasClick} />
           {nodes.map(node => (
             <NavPointMesh
               key={node.id}
